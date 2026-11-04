@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>CasaEnRegla</title>
+  <meta name="theme-color" content="#16294a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="CasaEnRegla">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="barra">
+    <img src="icon.svg" alt="" class="logo">
+    <div>
+      <h1>CasaEnRegla</h1>
+      <p class="slogan">Tu empleada, en regla.</p>
+    </div>
+  </header>
+
+  <!-- ===== Login ===== -->
+  <main id="pantallaLogin" hidden>
+    <h2>Entrar</h2>
+    <form id="formLogin" class="tarjeta">
+      <label>Email
+        <input name="email" type="email" required autocomplete="email">
+      </label>
+      <label>Contraseña
+        <input name="password" type="password" required autocomplete="current-password">
+      </label>
+      <button type="submit" class="boton boton-principal">Entrar</button>
+      <p id="estadoLogin" class="estado" role="status"></p>
+    </form>
+  </main>
+
+  <main id="pantallaApp" hidden>
+    <div class="usuario"><span id="emailUsuario"></span> <button type="button" id="btnSalir" class="link">Salir</button></div>
+    <h2>Nueva empleada</h2>
+
+    <!-- ===== Escaneo de DNI ===== -->
+    <section class="tarjeta">
+      <button type="button" id="btnEscanear" class="boton boton-principal">📷 Escanear DNI</button>
+      <p class="ayuda">Apuntá la cámara al código de barras del <b>frente</b> del DNI. No se guarda la foto, solo los datos.</p>
+      <div id="visor" class="visor" hidden>
+        <video id="video" playsinline muted></video>
+        <div class="marco"></div>
+        <button type="button" id="btnCancelarScan" class="boton boton-secundario">Cancelar</button>
+      </div>
+      <p id="estadoScan" class="estado" role="status"></p>
+    </section>
+
+    <form id="formEmpleada" novalidate>
+      <!-- ===== Datos personales ===== -->
+      <section class="tarjeta">
+        <h3>Datos personales</h3>
+
+        <label>Apellido
+          <input name="apellido" required autocomplete="off">
+        </label>
+        <label>Nombre
+          <input name="nombre" required autocomplete="off">
+        </label>
+
+        <div class="fila">
+          <label>DNI
+            <input name="dni" required inputmode="numeric" pattern="\d{7,8}" maxlength="8">
+          </label>
+          <label>Sexo
+            <select name="sexo" required>
+              <option value="">Elegir…</option>
+              <option value="F">Femenino</option>
+              <option value="M">Masculino</option>
+              <option value="X">X</option>
+            </select>
+          </label>
+        </div>
+
+        <label>Fecha de nacimiento
+          <input name="fecha_nacimiento" type="date">
+        </label>
+
+        <label>CUIL
+          <div class="con-boton">
+            <input name="cuil" required inputmode="numeric" placeholder="27-12345678-9">
+            <button type="button" id="btnCalcularCuil" class="boton boton-chico">Calcular</button>
+          </div>
+        </label>
+        <p id="avisoCuil" class="ayuda"></p>
+      </section>
+
+      <!-- ===== Domicilio ===== -->
+      <section class="tarjeta">
+        <h3>Domicilio</h3>
+        <div class="fila">
+          <label class="ancho">Calle
+            <input name="calle">
+          </label>
+          <label>Número
+            <input name="numero" inputmode="numeric">
+          </label>
+        </div>
+        <div class="fila">
+          <label>Piso / Depto
+            <input name="piso_depto">
+          </label>
+          <label>Código postal
+            <input name="codigo_postal">
+          </label>
+        </div>
+        <label>Localidad
+          <input name="localidad">
+        </label>
+        <label>Provincia
+          <select name="provincia" id="selProvincia"></select>
+        </label>
+      </section>
+
+      <!-- ===== Datos laborales ===== -->
+      <section class="tarjeta">
+        <h3>Datos laborales</h3>
+
+        <label>Fecha de ingreso
+          <input name="fecha_ingreso" type="date" required>
+        </label>
+
+        <label>Categoría
+          <select name="categoria" required>
+            <option value="">Elegir…</option>
+            <option value="1">1ª — Supervisor/a</option>
+            <option value="2">2ª — Tareas específicas (cocinero/a, etc.)</option>
+            <option value="3">3ª — Caseros</option>
+            <option value="4">4ª — Asistencia y cuidado de personas</option>
+            <option value="5">5ª — Tareas generales (limpieza, etc.)</option>
+          </select>
+        </label>
+
+        <fieldset>
+          <legend>Modalidad</legend>
+          <label class="opcion"><input type="radio" name="modalidad" value="con_retiro" required> Con retiro</label>
+          <label class="opcion"><input type="radio" name="modalidad" value="sin_retiro"> Sin retiro (vive en la casa)</label>
+        </fieldset>
+
+        <label>Horas semanales
+          <input name="horas_semanales" type="number" min="1" max="48" inputmode="numeric">
+        </label>
+
+        <fieldset>
+          <legend>Días de trabajo</legend>
+          <div class="dias">
+            <label><input type="checkbox" name="dias" value="lun">Lun</label>
+            <label><input type="checkbox" name="dias" value="mar">Mar</label>
+            <label><input type="checkbox" name="dias" value="mie">Mié</label>
+            <label><input type="checkbox" name="dias" value="jue">Jue</label>
+            <label><input type="checkbox" name="dias" value="vie">Vie</label>
+            <label><input type="checkbox" name="dias" value="sab">Sáb</label>
+            <label><input type="checkbox" name="dias" value="dom">Dom</label>
+          </div>
+        </fieldset>
+      </section>
+
+      <p id="errores" class="errores" role="alert"></p>
+      <button type="submit" class="boton boton-principal">Guardar</button>
+      <p id="estadoGuardar" class="estado" role="status"></p>
+    </form>
+  </main>
+
+  <footer class="pie">CasaEnRegla es una app privada. No pertenece a ARCA ni a ningún organismo público.</footer>
+
+  <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
