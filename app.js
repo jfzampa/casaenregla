@@ -210,6 +210,7 @@ const CAMPOS_EMPLEADO = [
   'apellido', 'nombre', 'dni', 'sexo', 'fecha_nacimiento', 'cuil',
   'calle', 'numero', 'piso_depto', 'codigo_postal', 'localidad', 'provincia',
   'fecha_ingreso', 'categoria', 'modalidad', 'horas_semanales',
+  'telefono', 'pago_medio_acordado', 'pago_alias',
 ];
 const formEmpleado = el('formEmpleado');
 const listaEl = el('listaEmpleados');
@@ -271,6 +272,7 @@ function validarEmpleado(e) {
   if (!e.fecha_ingreso) marcar('fecha_ingreso', 'Falta la fecha de ingreso.');
   if (!e.categoria) marcar('categoria', 'Elegí la categoría.');
   if (!e.modalidad) errores.push('Elegí la modalidad (con o sin retiro).');
+  if (e.telefono && e.telefono.replace(/\D/g, '').length !== 10) marcar('telefono', 'El celular tiene que tener 10 números (código de área sin 0 + número sin 15).');
   return errores;
 }
 
@@ -439,6 +441,8 @@ async function cargarPeriodo() {
   const periodo = formLiq.elements.periodo.value;
   if (!periodo) return;
   limpiarMarcas(formLiq);
+  liq.fila = null;
+  formCierre.hidden = true;
   listaOtros.innerHTML = '';
   ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado'].forEach((c) => { formLiq.elements[c].value = ''; });
   resultadoLiq.innerHTML = '<p class="ayuda">Cargando…</p>';
@@ -452,6 +456,8 @@ async function cargarPeriodo() {
   }
 
   const ex = liq.datos.existente;
+  liq.fila = ex;
+  mostrarCierre();
   const estado = estadoDe(formLiq, 'estado-liq');
   if (ex) {
     const n = ex.novedades || {};
@@ -516,7 +522,8 @@ formLiq.addEventListener('submit', async (ev) => {
     empleado_id: liq.empleado.id,
     periodo: `${periodo}-01`,
     novedades,
-    detalle: { renglones: r.renglones, modalidad_liquidacion: r.modalidad_liquidacion, anios_antiguedad: r.anios_antiguedad, arca: r.arca, neto_letras: r.neto_letras, escala: liq.datos.escala, zona: liq.datos.zona },
+    detalle: { renglones: r.renglones, modalidad_liquidacion: r.modalidad_liquidacion, anios_antiguedad: r.anios_antiguedad,
+      horas_liquidadas: r.horas_liquidadas, valor_hora: r.valor_hora, arca: r.arca, neto_letras: r.neto_letras, escala: liq.datos.escala, zona: liq.datos.zona },
     total_remunerativo: r.total_remunerativo,
     total_no_remun: r.total_no_remun,
     total_descuentos: r.total_descuentos,
@@ -530,7 +537,7 @@ formLiq.addEventListener('submit', async (ev) => {
   mostrarEstado(estado, 'Guardando…');
   const fijos = novedades.otros.filter((o) => o.fijo).map(({ descripcion, importe, tipo }) => ({ descripcion, importe, tipo }));
   const [res, resFijos] = await Promise.all([
-    db.from('liquidaciones').upsert(fila, { onConflict: 'empleado_id,periodo' }),
+    db.from('liquidaciones').upsert(fila, { onConflict: 'empleado_id,periodo' }).select().single(),
     db.from('empleados').update({ conceptos_fijos: fijos }).eq('id', liq.empleado.id),
   ]);
   btn.disabled = false;
@@ -540,7 +547,260 @@ formLiq.addEventListener('submit', async (ev) => {
     return;
   }
   liq.empleado.conceptos_fijos = fijos;
-  mostrarEstado(estado, `✓ Liquidación de ${nombrePeriodo(periodo)} guardada.`);
+  liq.fila = res.data;
+  mostrarCierre();
+  mostrarEstado(estado, `✓ Liquidación de ${nombrePeriodo(periodo)} guardada. Abajo podés cerrar el mes.`);
+});
+
+// ================= Cierre del mes: ARCA, pago, comprobantes, WhatsApp =================
+const formCierre = el('formCierre');
+const numArca = (n) => Number(n).toFixed(2).replace('.', ','); // formato para pegar: 1234,56
+
+function mostrarCierre() {
+  const f = liq.fila;
+  formCierre.hidden = !f;
+  if (!f) return;
+  formCierre.reset();
+  limpiarMarcas(formCierre);
+  const det = f.detalle || {};
+
+  // ---- Valores para copiar en ARCA ----
+  const valores = [
+    ['Período', `${f.periodo.slice(5, 7)}/${f.periodo.slice(0, 4)}`],
+    ['Modalidad de liquidación', det.modalidad_liquidacion === 'por_hora' ? 'Por hora' : 'Mensual'],
+    ['Horas semanales', String(liq.empleado.horas_semanales ?? '')],
+  ];
+  if (f.vep_numero) valores.push(['Nº de comprobante de pago de aportes (VEP)', f.vep_numero]);
+  if (det.modalidad_liquidacion === 'por_hora' && det.horas_liquidadas != null) {
+    valores.push(['Cantidad de horas', numArca(det.horas_liquidadas)], ['Valor hora', numArca(det.valor_hora)]);
+  }
+  for (const x of det.renglones || []) {
+    const tipo = x.tipo === 'norem' ? 'No remunerativo' : x.tipo === 'desc' ? 'Descuento' : 'Remunerativo';
+    valores.push([x.concepto, numArca(Math.abs(x.importe)), tipo + (x.importe < 0 && x.tipo === 'rem' ? ' · se resta' : '')]);
+  }
+  valores.push(['Neto a cobrar (para controlar)', numArca(f.neto)]);
+  el('valoresArca').innerHTML = valores.map(([k, v, nota]) => `
+    <div class="valor-arca"><span>${escapar(k)}${nota ? `<small>${escapar(nota)}</small>` : ''}</span>
+    <b>${escapar(v)}</b><button type="button" data-copiar="${escapar(v)}">Copiar</button></div>`).join('');
+
+  // ---- Datos ya registrados (o sugeridos) ----
+  formCierre.querySelector('.monto-arca').textContent = pesos(f.pago_arca);
+  llenarForm(formCierre, {
+    vep_numero: f.vep_numero,
+    vep_fecha: f.vep_fecha,
+    vep_importe: f.vep_importe,
+    recibo_arca_neto: f.recibo_arca_neto,
+    pago_fecha: f.pago_fecha,
+    pago_medio: f.pago_medio || liq.empleado.pago_medio_acordado,
+    pago_transaccion: f.pago_transaccion,
+    pago_importe: f.pago_importe ?? f.neto,
+    observaciones: f.observaciones,
+  });
+  ['vep_archivo', 'recibo_arca_archivo', 'pago_archivo'].forEach(mostrarArchivo);
+  mostrarControlRecibo(f.recibo_arca_conceptos);
+  actualizarCierre();
+}
+
+// Compara lo que dice el recibo de ARCA con la liquidación
+function mostrarControlRecibo(a) {
+  const caja = el('controlRecibo');
+  if (!a) { caja.innerHTML = ''; return; }
+  const f = liq.fila;
+  const chequeos = [];
+  if (a.periodo) {
+    chequeos.push(a.periodo === f.periodo.slice(0, 7)
+      ? ['ok', `Período correcto (${nombrePeriodo(a.periodo)}).`]
+      : ['mal', `El recibo es de ${nombrePeriodo(a.periodo)}, pero estás liquidando ${nombrePeriodo(f.periodo.slice(0, 7))}.`]);
+  }
+  const cuil = String(liq.empleado.cuil || '');
+  if (a.cuiles && a.cuiles.length) {
+    chequeos.push(a.cuiles.includes(cuil)
+      ? ['ok', 'El CUIL del empleado coincide.']
+      : ['mal', 'No encontré el CUIL de este empleado en el recibo: puede ser de otra persona.']);
+  }
+
+  // Conceptos: ARCA vs CasaEnRegla, agrupados por tipo
+  const nuestros = {};
+  for (const x of (f.detalle && f.detalle.renglones) || []) {
+    if (x.tipo === 'desc') continue;
+    const k = Liquidacion.claveConcepto(x.concepto);
+    nuestros[k] = nuestros[k] || { nombre: x.concepto, importe: 0 };
+    nuestros[k].importe += x.importe;
+  }
+  const filas = [];
+  const vistos = new Set();
+  for (const c of a.conceptos || []) {
+    const k = Liquidacion.claveConcepto(c.nombre);
+    vistos.add(k);
+    const n = nuestros[k] ? nuestros[k].importe : null;
+    const ok = n != null && Math.abs(n - c.importe) < 1;
+    filas.push(`<tr><td>${escapar(c.nombre)}</td><td>${pesos(c.importe)}</td><td class="${ok ? 'ok' : 'mal'}">${n != null ? pesos(n) : '—'}</td></tr>`);
+  }
+  for (const [k, n] of Object.entries(nuestros)) {
+    if (!vistos.has(k)) filas.push(`<tr><td>${escapar(n.nombre)}</td><td class="mal">—</td><td>${pesos(n.importe)}</td></tr>`);
+  }
+  caja.innerHTML = `<div class="control"><h4>Control del recibo de ARCA</h4>
+    <ul>${chequeos.map(([c, t]) => `<li class="${c}">${c === 'ok' ? '✓' : '⚠'} ${escapar(t)}</li>`).join('')}</ul>
+    ${filas.length ? `<table><tr><th>Concepto</th><th>ARCA</th><th>CasaEnRegla</th></tr>${filas.join('')}</table>` : ''}</div>`;
+}
+
+el('valoresArca').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-copiar]');
+  if (!b) return;
+  try {
+    await navigator.clipboard.writeText(b.dataset.copiar);
+    b.textContent = '✓ Copiado';
+    setTimeout(() => { b.textContent = 'Copiar'; }, 1500);
+  } catch { b.textContent = 'No se pudo'; }
+});
+
+// Muestra si hay diferencia entre un importe y lo que correspondía según la liquidación
+function mostrarDesvio(nodo, valor, referencia, que = 'lo liquidado') {
+  nodo.classList.remove('ok', 'mal');
+  if (valor === '' || valor == null || !liq.fila) { nodo.textContent = ''; return; }
+  const dif = Math.round((Number(valor) - Number(referencia)) * 100) / 100;
+  if (Math.abs(dif) < 1) { nodo.textContent = `✓ Coincide con ${que}.`; nodo.classList.add('ok'); return; }
+  nodo.textContent = `⚠ Diferencia de ${pesos(Math.abs(dif))} (${dif > 0 ? 'más' : 'menos'} que ${que}: ${pesos(referencia)}). Revisá o anotá el motivo en Observaciones.`;
+  nodo.classList.add('mal');
+}
+
+function actualizarCierre() {
+  if (!liq.fila) return;
+  mostrarDesvio(formCierre.querySelector('.desvio-vep'), formCierre.elements.vep_importe.value, liq.fila.pago_arca, 'lo calculado para ARCA');
+  mostrarDesvio(formCierre.querySelector('.desvio-recibo'), formCierre.elements.recibo_arca_neto.value, liq.fila.neto);
+  mostrarDesvio(formCierre.querySelector('.desvio-pago'), formCierre.elements.pago_importe.value, liq.fila.neto);
+  const medio = formCierre.elements.pago_medio.value;
+  formCierre.querySelectorAll('.solo-transferencia').forEach((n) => { n.hidden = medio !== 'transferencia'; });
+  formCierre.querySelectorAll('.solo-efectivo').forEach((n) => { n.hidden = medio !== 'efectivo'; });
+  const alias = liq.empleado.pago_alias;
+  formCierre.querySelector('.alias-pago').textContent = medio === 'transferencia' && alias ? `Alias / CBU del empleado: ${alias}` : '';
+}
+formCierre.addEventListener('input', actualizarCierre);
+formCierre.addEventListener('change', actualizarCierre);
+
+// ---- Archivos (recibo de ARCA y comprobante de pago) ----
+function mostrarArchivo(campo) {
+  const p = formCierre.querySelector(`.archivo-${campo}`);
+  const ruta = liq.fila?.[campo];
+  p.innerHTML = ruta ? `✓ Archivo cargado · <button type="button" class="link" data-ver="${escapar(ruta)}">Ver</button>` : '';
+}
+
+formCierre.addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-ver]');
+  if (!b) return;
+  const { data, error } = await db.storage.from('comprobantes').createSignedUrl(b.dataset.ver, 120);
+  if (error) { alert('No se pudo abrir el archivo.'); console.error(error); return; }
+  window.open(data.signedUrl, '_blank');
+});
+
+formCierre.querySelectorAll('[data-archivo]').forEach((input) => input.addEventListener('change', async () => {
+  const archivo = input.files[0];
+  if (!archivo) return;
+  const campo = input.dataset.archivo;
+  const aviso = formCierre.querySelector(`.archivo-${campo}`);
+  if (archivo.size > 10 * 1024 * 1024) { aviso.textContent = 'El archivo es muy grande (máximo 10 MB).'; return; }
+
+  aviso.textContent = 'Subiendo…';
+  const { data: { user } } = await db.auth.getUser();
+  const ext = (archivo.name.split('.').pop() || 'pdf').toLowerCase();
+  const nombres = { pago_archivo: 'pago', recibo_arca_archivo: 'recibo-arca', vep_archivo: 'vep' };
+  const ruta = `${user.id}/${liq.fila.id}/${nombres[campo]}.${ext}`;
+  const subida = await db.storage.from('comprobantes').upload(ruta, archivo, { upsert: true, contentType: archivo.type });
+  if (subida.error) { aviso.textContent = 'No se pudo subir el archivo. Probá de nuevo.'; console.error(subida.error); return; }
+  const { error } = await db.from('liquidaciones').update({ [campo]: ruta }).eq('id', liq.fila.id);
+  if (error) { aviso.textContent = 'Se subió, pero no se pudo registrar. Probá de nuevo.'; console.error(error); return; }
+  liq.fila[campo] = ruta;
+  mostrarArchivo(campo);
+
+  // Si es un PDF de ARCA, intento leer los datos solo
+  if (archivo.type === 'application/pdf' && campo !== 'pago_archivo') {
+    const texto = await textoDePdf(archivo).catch((e) => { console.error(e); return ''; });
+    if (campo === 'vep_archivo') {
+      const v = Liquidacion.analizarVep(texto);
+      if (v.numero) formCierre.elements.vep_numero.value = v.numero;
+      if (v.fecha) formCierre.elements.vep_fecha.value = v.fecha;
+      if (v.importe != null) formCierre.elements.vep_importe.value = v.importe;
+      aviso.innerHTML += v.importe != null ? ' · Leí los datos del VEP: revisalos y guardá.' : ' · No pude leer el VEP: completá los datos a mano.';
+      if (v.periodo && v.periodo !== liq.fila.periodo.slice(0, 7)) {
+        aviso.innerHTML += ` <b>⚠ El VEP es del período ${nombrePeriodo(v.periodo)}.</b>`;
+      }
+    } else {
+      const a = Liquidacion.analizarReciboArca(texto);
+      if (a.total != null) formCierre.elements.recibo_arca_neto.value = a.total;
+      aviso.innerHTML += a.total != null ? ' · Leí el recibo: mirá el control de abajo.' : ' · No pude leer el total del recibo: escribilo abajo.';
+      liq.fila.recibo_arca_conceptos = a;
+      await db.from('liquidaciones').update({ recibo_arca_conceptos: a }).eq('id', liq.fila.id);
+      mostrarControlRecibo(a);
+    }
+    actualizarCierre();
+  }
+  input.value = '';
+}));
+
+// Devuelve el texto de un PDF (con pdf.js, que se carga solo cuando hace falta)
+async function textoDePdf(archivo) {
+  if (!window.pdfjsLib) {
+    await new Promise((ok, mal) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = ok; s.onerror = mal;
+      document.head.appendChild(s);
+    });
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+  const pdf = await pdfjsLib.getDocument({ data: await archivo.arrayBuffer() }).promise;
+  let texto = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const pagina = await pdf.getPage(i);
+    texto += (await pagina.getTextContent()).items.map((it) => it.str).join(' ') + '\n';
+  }
+  return texto;
+}
+
+// ---- Guardar el cierre ----
+formCierre.addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  limpiarMarcas(formCierre);
+  const c = leerCampos(formCierre, ['vep_numero', 'vep_fecha', 'vep_importe', 'recibo_arca_neto', 'pago_fecha', 'pago_medio', 'pago_transaccion', 'pago_importe', 'observaciones']);
+  c.recibo_arca_neto = c.recibo_arca_neto != null ? Number(c.recibo_arca_neto) : null;
+  c.pago_importe = c.pago_importe != null ? Number(c.pago_importe) : null;
+  c.vep_importe = c.vep_importe != null ? Number(c.vep_importe) : null;
+  if (c.pago_medio !== 'transferencia') c.pago_transaccion = null;
+
+  const errores = [];
+  if (c.pago_fecha && !c.pago_medio) errores.push('Elegí el medio de pago.');
+  if (c.pago_fecha && c.pago_importe == null) errores.push('Escribí el importe pagado.');
+  formCierre.querySelector('.errores').textContent = errores.join('\n');
+  if (errores.length) return;
+
+  c.recibo_arca = !!(liq.fila.recibo_arca_archivo || c.recibo_arca_neto != null);
+  c.estado = c.pago_fecha ? 'pagada' : c.recibo_arca ? 'confirmada' : 'borrador';
+  c.actualizado = new Date().toISOString();
+
+  const estado = estadoDe(formCierre, 'estado-guardar');
+  const { data, error } = await db.from('liquidaciones').update(c).eq('id', liq.fila.id).select().single();
+  if (error) { mostrarEstado(estado, 'No se pudo guardar. Probá de nuevo.', true); console.error(error); return; }
+  liq.fila = data;
+  const textos = { pagada: '✓ Mes cerrado: liquidación pagada.', confirmada: '✓ Guardado. Falta registrar el pago.', borrador: '✓ Guardado.' };
+  mostrarEstado(estado, textos[data.estado]);
+});
+
+// ---- WhatsApp ----
+el('btnWhatsapp').addEventListener('click', () => {
+  const f = liq.fila, e = liq.empleado;
+  if (!f) return;
+  const lineas = (f.detalle?.renglones || []).map((x) => `• ${x.concepto}: ${pesos(x.importe)}`);
+  const texto = [
+    `Hola ${e.nombre}! Te paso el detalle de tu sueldo de ${nombrePeriodo(f.periodo.slice(0, 7))}:`,
+    '', ...lineas, '',
+    `*Neto a cobrar: ${pesos(f.neto)}*`,
+    f.pago_fecha ? `Pagado el ${fechaCorta(f.pago_fecha)}${f.pago_medio ? ` por ${f.pago_medio}` : ''}.` : '',
+    '',
+    'El recibo oficial lo ves en ARCA: Clave Fiscal → Personal de Casas Particulares → Detalle del Trabajo → Recibos de Sueldo.',
+  ].filter((l, i, arr) => l !== '' || arr[i - 1] !== '').join('\n');
+  const tel = (e.telefono || '').replace(/\D/g, '');
+  const url = `https://wa.me/${tel.length === 10 ? '549' + tel : ''}?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
 });
 
 // ================= Mis datos (empleador) =================
@@ -625,6 +885,20 @@ el('formClave').addEventListener('submit', async (ev) => {
 
 el('btnSalir').addEventListener('click', () => db.auth.signOut());
 
+// Borra todos los comprobantes del usuario (carpeta <usuario>/<liquidación>/archivo)
+async function borrarMisArchivos() {
+  const { data: { user } } = await db.auth.getUser();
+  const bucket = db.storage.from('comprobantes');
+  const { data: carpetas, error } = await bucket.list(user.id, { limit: 1000 });
+  if (error) throw error;
+  const rutas = [];
+  for (const c of carpetas || []) {
+    const { data: archivos } = await bucket.list(`${user.id}/${c.name}`, { limit: 100 });
+    (archivos || []).forEach((a) => rutas.push(`${user.id}/${c.name}/${a.name}`));
+  }
+  if (rutas.length) await bucket.remove(rutas);
+}
+
 el('formBorrar').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const form = ev.target, estado = estadoDe(form);
@@ -634,6 +908,7 @@ el('formBorrar').addEventListener('submit', async (ev) => {
   }
   if (!confirm('¿Seguro? Se borran tu cuenta y todos los datos de tu personal. No se puede deshacer.')) return;
   mostrarEstado(estado, 'Borrando…');
+  await borrarMisArchivos().catch(console.error); // los archivos no se borran solos con la cuenta
   const { error } = await db.rpc('borrar_mi_cuenta');
   if (error) { mostrarEstado(estado, 'No se pudo borrar la cuenta. Probá de nuevo.', true); console.error(error); return; }
   await db.auth.signOut({ scope: 'local' });

@@ -60,7 +60,7 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - **Plazo de pago (art. 19)**: mensualizados, hasta el 4º día hábil del mes siguiente; por hora, al terminar la jornada o la semana, según lo acordado.
 
 ## Ideas futuras
-- **Acceso del empleado**: que el empleado vea sus recibos y los acuerdos (ej. descuento de aportes) y los acepte con firma electrónica, quedando asentado.
+- **Acceso del empleado**: que el empleado vea sus recibos y los acuerdos (descuento de aportes, medio de pago acordado) y los acepte con firma electrónica, quedando asentado.
 
 ## Etapas
 1. **Versión para uso propio** (pruebo con mis propios datos; todavía no tengo empleada).
@@ -90,7 +90,14 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   liquidación mensual (`supabase/05_liquidaciones.sql`: `aportes_arca`, `liquidaciones`; motor de cálculo puro en `liquidacion.js`).
   Pantalla "Liquidar": novedades (faltas, extras 50/100, horas en feriado), otros conceptos rem/no rem (los "todos los meses"
   se guardan en `empleados.conceptos_fijos`), detalle, neto en letras y monto a pagar en ARCA.
-- Siguiente: pantalla "Cargar en ARCA" (valores para copiar), registrar pago (fecha, medio, nº transacción), enviar detalle por WhatsApp.
+- Cierre del mes (`supabase/06_cierre_mes.sql`): valores para copiar en ARCA, subir recibo de ARCA (lee el neto del PDF con pdf.js),
+  registrar pago (fecha, medio, nº transacción, importe, comprobante), desvíos recibo/pago vs neto (columnas calculadas) con observaciones,
+  y envío del detalle por WhatsApp (wa.me). Archivos en Storage, bucket privado `comprobantes`, carpeta por usuario.
+  Ficha del empleado: celular, medio de pago acordado, alias/CBU.
+- Pago de aportes con VEP (`supabase/07_vep_y_control_recibo.sql`): se sube el comprobante del VEP, se leen nº, período, fecha e importe y se compara con `pago_arca`.
+  El recibo de ARCA se compara concepto por concepto (período, CUIL del empleado, Básico/Antigüedad/etc.).
+  Formatos reales (2022): recibo ARCA dice "Total $ x" (no "Neto"), "PERÍODO: Mayo 2022", conceptos en "Detalle de la Remuneración",
+  y referencia el nº de VEP; comprobante VEP trae "Nro. VEP", "Periodo: aaaamm", "IMPORTE PAGADO", "Fecha de Pago: d/m/aaaa". Lectura en `liquidacion.js`.
 - Pendiente: aguinaldo (SAC), vacaciones, avisos, liquidación final.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae

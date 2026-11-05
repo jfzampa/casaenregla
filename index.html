@@ -208,6 +208,23 @@
         </section>
 
         <section class="tarjeta">
+          <h3>Contacto y pago</h3>
+          <label>Celular (para WhatsApp)
+            <input name="telefono" type="tel" inputmode="tel" placeholder="11 2345-6789">
+          </label>
+          <p class="ayuda">Código de área sin 0 y número sin 15. Ej.: 11 2345-6789 · 351 234-5678.</p>
+          <label>Medio de pago acordado
+            <select name="pago_medio_acordado">
+              <option value="">Elegir…</option>
+              <option value="transferencia">Transferencia bancaria</option>
+              <option value="efectivo">Efectivo</option>
+              <option value="otro">Otro</option>
+            </select>
+          </label>
+          <label>Alias o CBU/CVU <input name="pago_alias" autocomplete="off"></label>
+        </section>
+
+        <section class="tarjeta">
           <h3>Aportes</h3>
           <label class="opcion"><input type="checkbox" name="es_jubilado"> Es jubilado/a</label>
           <label class="opcion"><input type="checkbox" name="descuenta_aporte"> Descontar el aporte de obra social del sueldo</label>
@@ -258,6 +275,85 @@
         <p class="errores" role="alert"></p>
         <button type="submit" class="boton boton-principal">Guardar liquidación</button>
         <p class="estado estado-guardar" role="status"></p>
+      </form>
+
+      <!-- Cierre del mes: aparece cuando la liquidación está guardada -->
+      <form id="formCierre" novalidate hidden>
+        <h2 class="subtitulo">Cerrar el mes</h2>
+
+        <section class="tarjeta">
+          <h3>1. Pagar los aportes en ARCA (VEP)</h3>
+          <p class="ayuda arriba">Aportes, contribuciones y ART del mes: <b class="monto-arca"></b>. Se pagan con un VEP desde el servicio de Casas Particulares.</p>
+          <label>Subí el comprobante del VEP (PDF o foto)
+            <input type="file" data-archivo="vep_archivo" accept="application/pdf,image/*">
+          </label>
+          <p class="ayuda archivo-vep_archivo"></p>
+          <div class="fila">
+            <label>Nº de VEP <input name="vep_numero" inputmode="numeric" autocomplete="off"></label>
+            <label>Fecha de pago <input name="vep_fecha" type="date"></label>
+          </div>
+          <label>Importe pagado <input name="vep_importe" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <p class="desvio desvio-vep"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h3>2. Emitir el recibo en ARCA</h3>
+          <p class="ayuda arriba">Entrá con tu Clave Fiscal a <b>Personal de Casas Particulares</b> → ficha del empleado → <b>Generar recibo de sueldo</b>, y cargá estos valores:</p>
+          <a class="boton boton-secundario borde enlace" href="https://www.arca.gob.ar" target="_blank" rel="noopener">Abrir ARCA ↗</a>
+          <div id="valoresArca"></div>
+
+          <label>Subí el recibo que generó ARCA (PDF o foto)
+            <input type="file" data-archivo="recibo_arca_archivo" accept="application/pdf,image/*">
+          </label>
+          <p class="ayuda archivo-recibo_arca_archivo"></p>
+          <div id="controlRecibo"></div>
+          <label>Total (neto) que figura en el recibo de ARCA
+            <input name="recibo_arca_neto" type="number" step="0.01" min="0" inputmode="decimal">
+          </label>
+          <p class="desvio desvio-recibo"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h3>3. Pagarle el sueldo</h3>
+          <div class="fila">
+            <label>Fecha de pago <input name="pago_fecha" type="date"></label>
+            <label>Medio
+              <select name="pago_medio">
+                <option value="">Elegir…</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="otro">Otro</option>
+              </select>
+            </label>
+          </div>
+          <p class="ayuda alias-pago"></p>
+          <label class="solo-transferencia">Nº de transacción
+            <input name="pago_transaccion" autocomplete="off">
+          </label>
+          <p class="ayuda solo-transferencia">Guardalo: ARCA lo pide para deducir el sueldo en Ganancias.</p>
+          <p class="ayuda solo-efectivo">Pago en efectivo: imprimí el recibo de ARCA por duplicado y hacé firmar al empleado la copia que te quedás (RG 5850).</p>
+          <label>Importe pagado
+            <input name="pago_importe" type="number" step="0.01" min="0" inputmode="decimal">
+          </label>
+          <p class="desvio desvio-pago"></p>
+          <label>Comprobante (transferencia o recibo firmado)
+            <input type="file" data-archivo="pago_archivo" accept="application/pdf,image/*">
+          </label>
+          <p class="ayuda archivo-pago_archivo"></p>
+          <label>Observaciones (ej.: motivo de una diferencia)
+            <input name="observaciones" autocomplete="off">
+          </label>
+        </section>
+
+        <p class="errores" role="alert"></p>
+        <button type="submit" class="boton boton-principal">Guardar cierre del mes</button>
+        <p class="estado estado-guardar" role="status"></p>
+
+        <section class="tarjeta">
+          <h3>4. Avisarle al empleado</h3>
+          <p class="ayuda arriba">Le manda por WhatsApp el detalle de la liquidación.</p>
+          <button type="button" id="btnWhatsapp" class="boton boton-whatsapp">Enviar por WhatsApp</button>
+        </section>
       </form>
     </div>
 

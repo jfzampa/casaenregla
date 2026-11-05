@@ -74,6 +74,7 @@
 
     // ---- Sueldo básico ----
     let basico = 0;
+    let horasLiquidadas = null;
     if (mensualizado) {
       const h = Math.min(horasSem, 48);
       basico = valorMensual * h / 48;
@@ -83,6 +84,7 @@
       const diasMes = diasDeTrabajoEnMes(periodo, empleado.dias);
       const horasDia = diasSemana ? horasSem / diasSemana : 0;
       const horas = r2(diasMes * horasDia);
+      horasLiquidadas = horas;
       basico = horas * valorHora;
       add('Horas trabajadas', `${diasMes} días × ${fmt(horasDia)} hs = ${fmt(horas)} hs × $${fmt(valorHora)}`, basico, 'rem');
     }
@@ -153,6 +155,8 @@
     return {
       modalidad_liquidacion: mensualizado ? 'mensual' : 'por_hora',
       anios_antiguedad: anios,
+      horas_liquidadas: horasLiquidadas,
+      valor_hora: valorHora,
       renglones, avisos, arca,
       total_remunerativo: totalRem,
       total_no_remun: totalNoRem,
@@ -202,7 +206,76 @@
     return (negativo ? 'menos ' : '') + t.charAt(0).toUpperCase() + t.slice(1);
   }
 
-  const api = { calcular, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras };
+  // ===== Lectura de documentos de ARCA (a partir del texto del PDF) =====
+  const importeAR = (s) => Number(String(s).replace(/\./g, '').replace(',', '.'));
+  const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  const sinAcentos = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+  // Agrupa conceptos parecidos para poder comparar el recibo de ARCA con la liquidación
+  function claveConcepto(nombre) {
+    const n = sinAcentos(nombre);
+    if (/basico|sueldo|horas trabajadas|remuneracion/.test(n)) return 'basico';
+    if (/antig/.test(n)) return 'antiguedad';
+    if (/zona/.test(n)) return 'zona';
+    if (/extra/.test(n) && /100/.test(n)) return 'extra100';
+    if (/extra/.test(n)) return 'extra50';
+    if (/feriado/.test(n)) return 'feriado';
+    if (/falta|inasist|ausen/.test(n)) return 'faltas';
+    if (/aguinaldo|sac/.test(n)) return 'sac';
+    if (/vacacion/.test(n)) return 'vacaciones';
+    return n.replace(/[^a-z0-9]/g, '');
+  }
+
+  // Recibo de sueldo de ARCA (Registro de Casas Particulares)
+  function analizarReciboArca(texto) {
+    const t = String(texto).replace(/\s+/g, ' ');
+    const res = { periodo: null, cuiles: [], conceptos: [], total: null };
+
+    const mp = /PER[IÍ]ODO:?\s*([A-Za-zÁÉÍÓÚáéíóú]+)\s+(\d{4})/i.exec(t);
+    if (mp) {
+      const m = MESES.indexOf(sinAcentos(mp[1]));
+      if (m >= 0) res.periodo = `${mp[2]}-${String(m + 1).padStart(2, '0')}`;
+    }
+    res.cuiles = [...new Set([...t.matchAll(/\b(\d{2})-?(\d{8})-?(\d)\b/g)].map((m) => m[1] + m[2] + m[3]))];
+
+    const mt = /\bTotal\s*\$\s*([\d.]+,\d{2})/i.exec(t) || /neto[^0-9]{0,60}?([\d.]{1,12},\d{2})/i.exec(t);
+    if (mt) res.total = importeAR(mt[1]);
+
+    // Conceptos: entre "Detalle de la Remuneración" y el primer "Total $"
+    const ini = t.search(/Detalle de la Remuneraci[oó]n/i);
+    if (ini >= 0) {
+      const resto = t.slice(ini).replace(/^Detalle de la Remuneraci[oó]n/i, '');
+      const fin = resto.search(/\bTotal\s*\$/i);
+      const tramo = fin >= 0 ? resto.slice(0, fin) : resto;
+      for (const m of tramo.matchAll(/([A-Za-zÁÉÍÓÚÜÑáéíóúüñ°º%().\/ ]{3,}?)\s*\$\s*(-?[\d.]+,\d{2})/g)) {
+        res.conceptos.push({ nombre: m[1].trim(), importe: importeAR(m[2]) });
+      }
+    }
+    return res;
+  }
+
+  // Comprobante de pago de VEP (aportes, contribuciones y ART)
+  function analizarVep(texto) {
+    const t = String(texto).replace(/\s+/g, ' ');
+    const busca = (re) => { const m = re.exec(t); return m ? m : null; };
+    const nro = busca(/Nro\.?\s*(?:de\s*)?VEP:?\s*(\d+)/i);
+    const per = busca(/Per[ií]odo:?\s*(\d{4})(\d{2})/i);
+    const imp = busca(/IMPORTE PAGADO:?\s*\$?\s*([\d.]+,\d{2})/i) || busca(/Aportes,? Contrib\.? y ART[^$]{0,20}\$\s*([\d.]+,\d{2})/i);
+    const fec = busca(/Fecha de Pago:?\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i);
+    const trx = busca(/Nro\.?\s*de\s*Transacci[oó]n:?\s*(\d+)/i);
+    return {
+      numero: nro ? nro[1] : null,
+      periodo: per ? `${per[1]}-${per[2]}` : null,
+      importe: imp ? importeAR(imp[1]) : null,
+      fecha: fec ? `${fec[3]}-${fec[2].padStart(2, '0')}-${fec[1].padStart(2, '0')}` : null,
+      transaccion: trx ? trx[1] : null,
+    };
+  }
+
+  const api = {
+    calcular, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
+    analizarReciboArca, analizarVep, claveConcepto,
+  };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Liquidacion = api;
 })(typeof window !== 'undefined' ? window : globalThis);
