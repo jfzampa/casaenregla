@@ -271,6 +271,7 @@
     zona_desfavorable_pct: 'Zona desfavorable %', antiguedad_pct_anual: 'Antigüedad % por año',
     horas_mensualizado: 'Horas para mensualizado', antiguedad_desde: 'Antigüedad desde',
     vep_dia_vencimiento: 'Día de vencimiento del VEP', periodo_prueba_meses: 'Período de prueba (meses)',
+    vacaciones_divisor: 'Vacaciones: divisor',
   };
 
   async function cargarParametros() {

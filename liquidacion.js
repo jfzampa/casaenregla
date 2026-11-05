@@ -114,6 +114,20 @@
       }
     }
 
+    // ---- Vacaciones (se pagan antes de empezar: art. 32). Todos los días en el mes en que empiezan ----
+    const diasVac = Number(novedades.vacaciones && novedades.vacaciones.dias) || 0;
+    if (diasVac > 0) {
+      const base = basico + antiguedad + adicZona;
+      const divisor = Number(param.vacaciones_divisor) || 25;
+      const desdeTxt = novedades.vacaciones.desde ? ` desde el ${novedades.vacaciones.desde.split('-').reverse().join('/')}` : '';
+      if (divisor === 30) {
+        avisos.push(`Vacaciones: ${diasVac} días${desdeTxt}, pagadas como sueldo normal (divisor 30, sin plus).`);
+      } else {
+        add(`Vacaciones ${diasVac} días${desdeTxt}`, `$${fmt(base)} ÷ ${divisor} × ${diasVac} días`, base / divisor * diasVac, 'rem');
+        add('Días de vacaciones (no trabajados)', `$${fmt(base)} ÷ 30 × ${diasVac} días`, -(base / 30 * diasVac), 'rem');
+      }
+    }
+
     // ---- Horas extra y feriados trabajados (sobre el valor hora de la escala) ----
     const h50 = Number(novedades.horas_extra_50) || 0;
     const h100 = Number(novedades.horas_extra_100) || 0;

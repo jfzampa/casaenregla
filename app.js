@@ -547,6 +547,7 @@ function leerNovedades() {
   return {
     faltas_dias: n('faltas_dias'), horas_extra_50: n('horas_extra_50'),
     horas_extra_100: n('horas_extra_100'), horas_feriado: n('horas_feriado'), otros: leerOtros(),
+    vacaciones: n('vac_dias') > 0 ? { dias: n('vac_dias'), desde: formLiq.elements.vac_desde.value || null } : null,
     sac: esMesSac() && formLiq.elements.incluir_sac.checked
       ? { incluir: true, mejor_remuneracion: n('mejor_remuneracion'), manual: liq.sacManual }
       : null,
@@ -609,7 +610,11 @@ async function cargarPeriodo() {
   liq.fila = null;
   formCierre.hidden = true;
   listaOtros.innerHTML = '';
-  ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado', 'mejor_remuneracion'].forEach((c) => { formLiq.elements[c].value = ''; });
+  ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado', 'mejor_remuneracion', 'vac_dias', 'vac_desde'].forEach((c) => { formLiq.elements[c].value = ''; });
+  const vac = Liquidacion.diasVacaciones(liq.empleado.fecha_ingreso, periodo.slice(0, 4));
+  el('ayudaVac').textContent = vac && vac.dias
+    ? `Le corresponden ${vac.dias} días corridos de vacaciones en ${periodo.slice(0, 4)}${vac.proporcional ? ' (proporcional)' : ''}, a tomar entre el 1/10 y el 30/4. Se pagan antes de empezar: cargá todos los días en el mes en que comienzan.`
+    : '';
   formLiq.elements.incluir_sac.checked = false;
   liq.sacManual = false;
   el('cajaSac').hidden = !esMesSac();
@@ -631,6 +636,10 @@ async function cargarPeriodo() {
     const n = ex.novedades || {};
     ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado'].forEach((c) => { formLiq.elements[c].value = n[c] || ''; });
     (n.otros || []).forEach(agregarOtro);
+    if (n.vacaciones) {
+      formLiq.elements.vac_dias.value = n.vacaciones.dias || '';
+      formLiq.elements.vac_desde.value = n.vacaciones.desde || '';
+    }
     if (n.sac && n.sac.incluir) {
       formLiq.elements.incluir_sac.checked = true;
       formLiq.elements.mejor_remuneracion.value = n.sac.mejor_remuneracion || '';

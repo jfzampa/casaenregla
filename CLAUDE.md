@@ -129,7 +129,10 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   escala retroactiva (liquidación hecha con una escala anterior a la vigente) y escala del mes no cargada.
   Tabla `feriados` (admin, pestaña Feriados) para días hábiles; trasladables de 2026/2027 cargados por regla general: verificar.
   Avisos por notificación/mail (fuera de la app): pendiente, requiere Edge Function + cron (junto con el paso B).
-- Pendiente: vacaciones (cálculo del pago), liquidación final, novedades día a día durante el mes.
+- Vacaciones ✔: en Novedades, "días que empieza a tomar este mes" + desde (todos los días en el mes de inicio: se pagan antes, art. 32).
+  Renglones: "Vacaciones N días" = base ÷ divisor × N y "Días de vacaciones (no trabajados)" = − base ÷ 30 × N (base = básico + antig. + zona).
+  Divisor = parámetro `vacaciones_divisor` (SQL 13): 25 por defecto (plus, como LCT 155) o 30 (sin plus). DECISIÓN PENDIENTE del dueño.
+- Pendiente: liquidación final, novedades día a día durante el mes.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae
   Supabase gratis solo manda a emails del equipo del proyecto y tiene pocos envíos por hora.
