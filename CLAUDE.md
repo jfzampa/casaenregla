@@ -79,6 +79,9 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Regla: **ningún valor llega a los usuarios sin aprobación del dueño** (controles automáticos: 10 renglones, aumento razonable, 3ª = 4ª con retiro).
 
 ## Ideas futuras
+- **Descuentos con destino** (idea del dueño, 2026-11-05; decidido dejar para más adelante): como en el régimen general, cada descuento
+  con su entidad y transferencia a registrar en el cierre (cuota sindical si está afiliado, embargos judiciales, adelantos). Hoy solo existe
+  el aporte de obra social acordado, que se retiene y va dentro del VEP (en casas particulares ARCA reparte a OS/SIPA/ART).
 - **App/portal del empleado** (idea del dueño, 2026-11-05):
   - Comunicaciones oficiales y acuerdos (medio de pago, descuento de aportes, vacaciones, preaviso) aceptados con firma electrónica, con registro de fecha y hora.
   - **Presentismo diario**: el empleado marca "presente" desde su celular; la app guarda hora y ubicación de ese momento y la compara
