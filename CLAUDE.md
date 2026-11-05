@@ -116,6 +116,8 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   El recibo de ARCA se compara concepto por concepto (período, CUIL del empleado, Básico/Antigüedad/etc.).
   Formatos reales (2022): recibo ARCA dice "Total $ x" (no "Neto"), "PERÍODO: Mayo 2022", conceptos en "Detalle de la Remuneración",
   y referencia el nº de VEP; comprobante VEP trae "Nro. VEP", "Periodo: aaaamm", "IMPORTE PAGADO", "Fecha de Pago: d/m/aaaa". Lectura en `liquidacion.js`.
+- Ficha del empleado (tocar un empleado en la lista): datos, antigüedad, resumen por año (costo total, neto, ARCA, liquidaciones
+  pagadas, mayor remuneración = base SAC, desvíos, meses sin liquidar) e historial; tocar una liquidación abre ese mes. Base para el portal del empleado.
 - Pendiente: aguinaldo (SAC), vacaciones, avisos, liquidación final.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae

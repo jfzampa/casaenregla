@@ -194,6 +194,27 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
   font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
 }
 
+/* ----- Ficha del empleado ----- */
+.acciones { display: flex; gap: 8px; margin: 4px 0 14px; }
+.acciones .boton { margin: 0; font-size: .95rem; padding: 12px 8px; }
+.titulo-con-select { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.titulo-con-select h3 { margin: 0; }
+.titulo-con-select select { width: auto; margin: 0; padding: 6px 10px; }
+.cifras { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cifra { background: #f4f6f5; border-radius: 10px; padding: 8px 10px; }
+.cifra small { display: block; color: var(--gris); font-size: .75rem; }
+.cifra b { color: var(--azul); font-size: 1rem; }
+.cifra.grande { grid-column: 1 / -1; background: #eef7f2; }
+.cifra.grande b { font-size: 1.3rem; }
+.pendientes { font-size: .88rem; margin: 10px 0 0; color: #9a5b00; }
+.subtitulo-lista { color: var(--azul); margin: 18px 0 8px; }
+.liq-item .fila-liq { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.liq-item .fila-liq b { font-size: 1.05rem; }
+.estado-liq-chip { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #e3e8e6; color: var(--gris); white-space: nowrap; }
+.estado-liq-chip.confirmada { background: #e2ecf8; color: #24508a; }
+.estado-liq-chip.pagada { background: #dff3e8; color: var(--verde-oscuro); }
+.liq-item .desvios { color: #9a5b00; }
+
 /* ----- Liquidación ----- */
 .otro { border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
 .otro .fila { align-items: flex-end; }

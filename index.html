@@ -123,9 +123,31 @@
       <button type="button" id="btnNuevo" class="boton boton-principal">+ Nuevo empleado</button>
     </div>
 
+    <!-- ===== Ficha del empleado: resumen e historial de liquidaciones ===== -->
+    <div id="vistaFicha" class="vista" hidden>
+      <button type="button" class="link volver" data-vista="vistaLista">← Volver a mis empleados</button>
+      <h2 id="tituloFicha"></h2>
+      <p class="info-liq" id="datosFicha"></p>
+      <div class="acciones">
+        <button type="button" id="btnFichaLiquidar" class="boton boton-principal">💰 Liquidar un mes</button>
+        <button type="button" id="btnFichaEditar" class="boton boton-secundario borde">✏️ Editar datos</button>
+      </div>
+
+      <section class="tarjeta">
+        <div class="titulo-con-select">
+          <h3>Resumen</h3>
+          <select id="selAnioFicha" aria-label="Año"></select>
+        </div>
+        <div id="resumenFicha"><p class="ayuda">Cargando…</p></div>
+      </section>
+
+      <h3 class="subtitulo-lista">Liquidaciones</h3>
+      <div id="listaLiqFicha"></div>
+    </div>
+
     <!-- ===== Formulario empleado (nuevo o editar) ===== -->
     <div id="vistaForm" class="vista" hidden>
-      <button type="button" class="link volver" data-vista="vistaLista">← Volver a mis empleados</button>
+      <button type="button" class="link volver" data-volver>← Volver</button>
       <h2 id="tituloForm">Nuevo empleado</h2>
 
       <form id="formEmpleado" novalidate>
@@ -240,7 +262,7 @@
 
     <!-- ===== Liquidar mes ===== -->
     <div id="vistaLiquidar" class="vista" hidden>
-      <button type="button" class="link volver" data-vista="vistaLista">← Volver a mis empleados</button>
+      <button type="button" class="link volver" data-volver>← Volver</button>
       <h2 id="tituloLiq">Liquidar</h2>
 
       <form id="formLiq" novalidate>

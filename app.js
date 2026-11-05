@@ -191,7 +191,7 @@ document.querySelectorAll('[data-escanear]').forEach((b) => b.addEventListener('
 el('btnCancelarScan').addEventListener('click', detenerEscaneo);
 
 // ================= Navegación dentro de la app =================
-const VISTAS = ['vistaLista', 'vistaForm', 'vistaLiquidar', 'vistaPerfil', 'vistaCuenta', 'vistaAdmin'];
+const VISTAS = ['vistaLista', 'vistaFicha', 'vistaForm', 'vistaLiquidar', 'vistaPerfil', 'vistaCuenta', 'vistaAdmin'];
 const ALCARGAR = {
   vistaLista: () => cargarLista(), vistaPerfil: () => cargarPerfil(), vistaCuenta: () => cargarCuenta(),
   vistaAdmin: () => window.cargarAdmin?.(),
@@ -200,7 +200,7 @@ const ALCARGAR = {
 function irA(vista) {
   detenerEscaneo();
   VISTAS.forEach((v) => { el(v).hidden = v !== vista; });
-  const pestania = ['vistaForm', 'vistaLiquidar'].includes(vista) ? 'vistaLista' : vista;
+  const pestania = ['vistaFicha', 'vistaForm', 'vistaLiquidar'].includes(vista) ? 'vistaLista' : vista;
   document.querySelectorAll('.pestanias button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === pestania));
   window.scrollTo({ top: 0 });
   ALCARGAR[vista]?.();
@@ -223,6 +223,7 @@ let editandoId = null;
 let mensajeLista = ''; // mensaje para mostrar cuando termine de cargar la lista
 
 async function cargarLista() {
+  fichaActual = null;
   mostrarEstado(estadoLista, 'Cargando…');
   const [{ data, error }, perfil] = await Promise.all([
     db.from('empleados').select('*').order('apellido').order('nombre'),
@@ -260,7 +261,7 @@ listaEl.addEventListener('click', (ev) => {
   const liq = ev.target.closest('[data-liquidar]');
   if (liq) { abrirLiquidacion(empleados.find((e) => e.id === liq.dataset.liquidar)); return; }
   const item = ev.target.closest('.item');
-  if (item) abrirEmpleado(empleados.find((e) => e.id === item.dataset.id));
+  if (item) abrirFicha(empleados.find((e) => e.id === item.dataset.id));
 });
 el('btnNuevo').addEventListener('click', () => abrirEmpleado());
 
@@ -351,6 +352,100 @@ async function actualizarCajaEscala() {
 formEmpleado.elements.categoria.addEventListener('change', actualizarCajaEscala);
 formEmpleado.querySelectorAll('input[name="modalidad"]').forEach((r) => r.addEventListener('change', actualizarCajaEscala));
 
+// ================= Ficha del empleado: resumen e historial =================
+let fichaActual = null;     // empleado cuya ficha está abierta (para volver a ella)
+let liqsFicha = [];
+const ESTADOS_LIQ = { borrador: 'Borrador', confirmada: 'Recibo emitido', pagada: 'Pagada ✓' };
+
+document.querySelectorAll('[data-volver]').forEach((b) => b.addEventListener('click', () => {
+  if (fichaActual) abrirFicha(fichaActual); else irA('vistaLista');
+}));
+
+function antiguedadTexto(fechaIngreso) {
+  if (!fechaIngreso) return '';
+  const [a, m] = fechaIngreso.split('-').map(Number);
+  const hoy = new Date();
+  let meses = (hoy.getFullYear() - a) * 12 + (hoy.getMonth() + 1 - m);
+  if (hoy.getDate() < Number(fechaIngreso.slice(8, 10))) meses--;
+  const anios = Math.floor(meses / 12), resto = meses % 12;
+  return [anios ? `${anios} año${anios === 1 ? '' : 's'}` : '', resto ? `${resto} mes${resto === 1 ? '' : 'es'}` : ''].filter(Boolean).join(' y ') || 'menos de un mes';
+}
+
+async function abrirFicha(empleado) {
+  fichaActual = empleado;
+  irA('vistaFicha');
+  const e = empleado;
+  el('tituloFicha').textContent = `${e.nombre} ${e.apellido}`;
+  el('datosFicha').textContent = [
+    `${e.categoria}ª ${CATEGORIAS[e.categoria] || ''}`,
+    e.modalidad === 'sin_retiro' ? 'Sin retiro' : 'Con retiro',
+    e.horas_semanales ? `${e.horas_semanales} hs semanales` : '',
+    `Ingreso ${fechaCorta(e.fecha_ingreso)} (${antiguedadTexto(e.fecha_ingreso)})`,
+  ].filter(Boolean).join(' · ');
+  el('resumenFicha').innerHTML = '<p class="ayuda">Cargando…</p>';
+  el('listaLiqFicha').innerHTML = '';
+
+  const { data, error } = await db.from('liquidaciones').select('*').eq('empleado_id', e.id).order('periodo', { ascending: false });
+  if (fichaActual !== empleado) return; // se cambió de pantalla mientras cargaba
+  if (error) { el('resumenFicha').innerHTML = '<p class="estado mal">No se pudieron cargar las liquidaciones.</p>'; console.error(error); return; }
+  liqsFicha = data;
+
+  const anioActual = new Date().getFullYear();
+  const anios = [...new Set([anioActual, ...data.map((l) => Number(l.periodo.slice(0, 4)))])].sort((a, b) => b - a);
+  el('selAnioFicha').innerHTML = anios.map((a) => `<option>${a}</option>`).join('');
+  dibujarFicha(anioActual);
+}
+
+const costoDe = (l) => Number(l.neto) + Number(l.pago_arca);
+const tieneDesvio = (l) => ['desvio_recibo', 'desvio_pago', 'desvio_vep'].some((c) => l[c] != null && Math.abs(Number(l[c])) >= 1);
+
+function dibujarFicha(anio) {
+  const e = fichaActual;
+  const delAnio = liqsFicha.filter((l) => Number(l.periodo.slice(0, 4)) === Number(anio));
+  const suma = (f) => delAnio.reduce((acc, l) => acc + f(l), 0);
+  const pagadas = delAnio.filter((l) => l.estado === 'pagada').length;
+  const mejor = delAnio.reduce((m, l) => Math.max(m, Number(l.total_remunerativo)), 0);
+  const conDesvio = delAnio.filter(tieneDesvio).length;
+
+  // Meses del año (hasta el actual) sin liquidación, desde el ingreso
+  const hoyMes = mesActual();
+  const desde = e.fecha_ingreso && e.fecha_ingreso.slice(0, 7) > `${anio}-01` ? e.fecha_ingreso.slice(0, 7) : `${anio}-01`;
+  const hechos = new Set(delAnio.map((l) => l.periodo.slice(0, 7)));
+  const faltan = [];
+  for (let m = 1; m <= 12; m++) {
+    const p = `${anio}-${String(m).padStart(2, '0')}`;
+    if (p >= desde && p <= hoyMes && !hechos.has(p)) faltan.push(p);
+  }
+  const textoFaltan = faltan.length ? `<p class="pendientes">Sin liquidar: ${faltan.map((p) => nombrePeriodo(p)).join(', ')}.</p>` : '';
+
+  el('resumenFicha').innerHTML = delAnio.length ? `
+    <div class="cifras">
+      <div class="cifra grande"><small>Costo total ${anio} (sueldos + ARCA)</small><b>${pesos(suma(costoDe))}</b></div>
+      <div class="cifra"><small>Neto cobrado por el empleado</small><b>${pesos(suma((l) => Number(l.neto)))}</b></div>
+      <div class="cifra"><small>Pagado a ARCA (VEP)</small><b>${pesos(suma((l) => Number(l.pago_arca)))}</b></div>
+      <div class="cifra"><small>Liquidaciones</small><b>${delAnio.length}</b> <small>${pagadas} pagada${pagadas === 1 ? '' : 's'}</small></div>
+      <div class="cifra"><small>Mayor remuneración del año</small><b>${pesos(mejor)}</b> <small>base para aguinaldo</small></div>
+    </div>
+    ${conDesvio ? `<p class="pendientes">⚠ ${conDesvio} liquidación${conDesvio === 1 ? '' : 'es'} con diferencias entre lo liquidado y lo emitido o pagado.</p>` : ''}
+    ${textoFaltan}`
+    : `<p class="ayuda">No hay liquidaciones en ${anio}.</p>${textoFaltan}`;
+
+  el('listaLiqFicha').innerHTML = delAnio.length ? delAnio.map((l) => `
+    <button type="button" class="item liq-item" data-periodo="${l.periodo.slice(0, 7)}">
+      <div class="fila-liq"><b>${nombrePeriodo(l.periodo.slice(0, 7))}</b><span class="estado-liq-chip ${l.estado}">${ESTADOS_LIQ[l.estado] || l.estado}</span></div>
+      <span>Neto ${pesos(l.neto)} · Costo total ${pesos(costoDe(l))}${l.pago_fecha ? ` · pagado el ${fechaCorta(l.pago_fecha)}` : ''}</span>
+      ${tieneDesvio(l) ? '<span class="desvios">⚠ Tiene diferencias: revisalas en el cierre del mes</span>' : ''}
+    </button>`).join('') : '<p class="vacio">Todavía no hay liquidaciones este año.</p>';
+}
+
+el('selAnioFicha').addEventListener('change', (ev) => dibujarFicha(ev.target.value));
+el('listaLiqFicha').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-periodo]');
+  if (b) abrirLiquidacion(fichaActual, b.dataset.periodo);
+});
+el('btnFichaLiquidar').addEventListener('click', () => abrirLiquidacion(fichaActual));
+el('btnFichaEditar').addEventListener('click', () => abrirEmpleado(fichaActual));
+
 // ================= Liquidar mes =================
 const formLiq = el('formLiq');
 const resultadoLiq = el('resultadoLiq');
@@ -430,12 +525,12 @@ async function datosDelPeriodo(empleado, periodo) {
   return { escala, param, aportes: filasAportes, zona, sinPerfil: !pf, existente: existente.data };
 }
 
-function abrirLiquidacion(empleado) {
+function abrirLiquidacion(empleado, periodo = mesActual()) {
   liq = { empleado, datos: null, resultado: null };
   el('tituloLiq').textContent = `Liquidar a ${empleado.nombre} ${empleado.apellido}`;
   formLiq.reset();
   limpiarMarcas(formLiq);
-  formLiq.elements.periodo.value = mesActual();
+  formLiq.elements.periodo.value = periodo;
   irA('vistaLiquidar');
   cargarPeriodo();
 }
