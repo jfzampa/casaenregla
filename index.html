@@ -473,6 +473,18 @@
           </div>
         </section>
 
+        <section class="tarjeta">
+          <h3>Criterios de liquidación</h3>
+          <label>Pago de vacaciones
+            <select name="vacaciones_divisor">
+              <option value="">Criterio general de la app</option>
+              <option value="30">Sueldo ÷ 30 (sin plus vacacional)</option>
+              <option value="25">Sueldo ÷ 25 (con plus vacacional, como la LCT)</option>
+            </select>
+          </label>
+          <p class="ayuda">La Ley 26.844 habla de "retribución normal y habitual" (÷ 30). Algunos aplican el criterio de la LCT (÷ 25).</p>
+        </section>
+
         <p class="errores" role="alert"></p>
         <button type="submit" class="boton boton-principal">Guardar mis datos</button>
         <p class="estado estado-guardar" role="status"></p>

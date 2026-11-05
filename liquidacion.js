@@ -118,7 +118,7 @@
     const diasVac = Number(novedades.vacaciones && novedades.vacaciones.dias) || 0;
     if (diasVac > 0) {
       const base = basico + antiguedad + adicZona;
-      const divisor = Number(param.vacaciones_divisor) || 25;
+      const divisor = Number(param.vacaciones_divisor) || 30;
       const desdeTxt = novedades.vacaciones.desde ? ` desde el ${novedades.vacaciones.desde.split('-').reverse().join('/')}` : '';
       if (divisor === 30) {
         avisos.push(`Vacaciones: ${diasVac} días${desdeTxt}, pagadas como sueldo normal (divisor 30, sin plus).`);

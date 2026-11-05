@@ -6,5 +6,5 @@
 -- Se puede cambiar desde Admin > Parámetros.
 
 insert into public.parametros (clave, vigencia_desde, valor, descripcion) values
-  ('vacaciones_divisor', '2013-04-12', 25, 'Divisor del pago de vacaciones: 25 (con plus, como LCT art. 155) o 30 (sin plus)')
+  ('vacaciones_divisor', '2013-04-12', 30, 'Divisor del pago de vacaciones: 30 (sin plus) o 25 (con plus, como LCT art. 155)')
 on conflict (clave, vigencia_desde) do nothing;

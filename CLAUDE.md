@@ -79,6 +79,8 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Regla: **ningún valor llega a los usuarios sin aprobación del dueño** (controles automáticos: 10 renglones, aumento razonable, 3ª = 4ª con retiro).
 
 ## Ideas futuras
+- **Contadores / estudios** como usuarios: que puedan usar la app para varios empleadores-clientes y fijar sus propios criterios
+  (ya existe el patrón: criterio general + criterio por empleador, ej. divisor de vacaciones).
 - **Acceso del empleado**: que el empleado vea sus recibos y los acuerdos (descuento de aportes, medio de pago acordado) y los acepte con firma electrónica, quedando asentado.
 
 ## Etapas
@@ -131,7 +133,8 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   Avisos por notificación/mail (fuera de la app): pendiente, requiere Edge Function + cron (junto con el paso B).
 - Vacaciones ✔: en Novedades, "días que empieza a tomar este mes" + desde (todos los días en el mes de inicio: se pagan antes, art. 32).
   Renglones: "Vacaciones N días" = base ÷ divisor × N y "Días de vacaciones (no trabajados)" = − base ÷ 30 × N (base = básico + antig. + zona).
-  Divisor = parámetro `vacaciones_divisor` (SQL 13): 25 por defecto (plus, como LCT 155) o 30 (sin plus). DECISIÓN PENDIENTE del dueño.
+  Divisor: general **30** (decisión del dueño, sin plus) en `parametros`; cada empleador puede elegir 25 o 30 en Mis datos
+  ("Criterios de liquidación", columna `empleadores.vacaciones_divisor`, SQL 14). Vacío = usa el general.
 - Pendiente: liquidación final, novedades día a día durante el mes.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae

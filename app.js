@@ -563,7 +563,7 @@ async function datosDelPeriodo(empleado, periodo) {
     escalaVigente(empleado.categoria, empleado.modalidad, fecha),
     db.from('parametros').select('*').lte('vigencia_desde', fecha).order('vigencia_desde', { ascending: false }),
     db.from('aportes_arca').select('*').lte('periodo_desde', fecha).order('periodo_desde', { ascending: false }),
-    db.from('empleadores').select('provincia, localidad, trabajo_mismo_domicilio, trabajo_provincia, trabajo_localidad').maybeSingle(),
+    db.from('empleadores').select('*').maybeSingle(),
     db.from('liquidaciones').select('*').eq('empleado_id', empleado.id).eq('periodo', fecha).maybeSingle(),
     db.from('liquidaciones').select('periodo, total_remunerativo, detalle').eq('empleado_id', empleado.id)
       .gte('periodo', inicioSem).lt('periodo', fecha),
@@ -584,6 +584,7 @@ async function datosDelPeriodo(empleado, periodo) {
     param.antiguedad_desde = `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
   }
   const filasAportes = aportes.data.filter((a) => a.periodo_desde === aportes.data[0]?.periodo_desde);
+  if (perfil.data && perfil.data.vacaciones_divisor) param.vacaciones_divisor = Number(perfil.data.vacaciones_divisor);
 
   const pf = perfil.data;
   const zona = pf ? (pf.trabajo_mismo_domicilio
@@ -1034,6 +1035,7 @@ const CAMPOS_PERFIL = [
   'apellido', 'nombre', 'dni', 'sexo', 'fecha_nacimiento', 'cuil', 'telefono',
   'calle', 'numero', 'piso_depto', 'codigo_postal', 'localidad', 'provincia',
   'trabajo_calle', 'trabajo_numero', 'trabajo_piso_depto', 'trabajo_codigo_postal', 'trabajo_localidad', 'trabajo_provincia',
+  'vacaciones_divisor',
 ];
 const formPerfil = el('formPerfil');
 const chkMismo = formPerfil.elements.trabajo_mismo_domicilio;
@@ -1056,6 +1058,7 @@ formPerfil.addEventListener('submit', async (ev) => {
   const p = leerCampos(formPerfil, CAMPOS_PERFIL);
   p.cuil = (p.cuil || '').replace(/\D/g, '');
   p.trabajo_mismo_domicilio = chkMismo.checked;
+  p.vacaciones_divisor = p.vacaciones_divisor ? Number(p.vacaciones_divisor) : null;
 
   const errores = [];
   const marcar = (campo, msj) => { formPerfil.elements[campo].classList.add('invalido'); errores.push(msj); };
