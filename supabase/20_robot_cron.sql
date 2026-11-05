@@ -14,7 +14,7 @@ select cron.schedule(
   '0 11 * * *',
   $$
   select net.http_post(
-    url     := 'https://azaeasfifcamwqqlfztb.supabase.co/functions/v1/robot-escalas',
+    url     := 'https://bytrghqvrpgcuvdbfnkn.supabase.co/functions/v1/robot-escalas',
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-robot', 'PONER_SECRETO'),
     body    := '{}'::jsonb
   );

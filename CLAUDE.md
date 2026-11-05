@@ -116,7 +116,7 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Hecho: pantalla "Nuevo empleado" (HTML/JS simple, sin build) con escaneo DNI (ZXing, PDF417), cálculo de CUIL,
   validaciones, login email+contraseña y guardado en Supabase (proyecto propio de CasaEnRegla, tabla `empleados` con RLS).
   Probado en la PC: guarda bien en la tabla.
-- SQL de la base en `supabase/` (numerados). Conexión en `config.js`.
+- SQL de la base en `supabase/` (numerados). Conexión en `config.js`. **Proyecto Supabase de CasaEnRegla: `bytrghqvrpgcuvdbfnkn`** (https://bytrghqvrpgcuvdbfnkn.supabase.co). OJO: `azaeasfifcamwqqlfztb` es OTRO proyecto (no usar).
 - Usuario de prueba creado a mano en Supabase (Authentication > Users). Todavía no hay pantalla de registro.
 - Publicada en GitHub Pages: https://jfzampa.github.io/casaenregla/ (repo jfzampa/casaenregla, rama main).
   Probada en el iPhone: se instala y el escaneo del DNI funciona.
@@ -182,7 +182,13 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   (Inicio, Empleados, Novedades, Mi trabajo si corresponde, Cuenta); pantalla de Inicio (saludo con nombre, Primeros pasos con progreso
   — se ocultan con localStorage —, accesos rápidos, Tareas pendientes = avisos, resumen del mes con costo y vencimientos); vista Novedades
   para elegir a quién anotar; mensajes flotantes (toast) para toda confirmación "✓ …" de mostrarEstado.
-- Avisos por notificación push / mail: pendiente (push = Web Push con claves VAPID; mail = en la fase final con SMTP).
+- Robot verificado en producción (2026-11-05): responde el informe correcto con el secreto; sin secreto devuelve 401.
+- Notificaciones push ✔ (`supabase/21_notificaciones.sql`, `22_avisos_cron.sql`, `supabase/functions/enviar-avisos/index.ts`):
+  Web Push con claves VAPID (pública en config.js; privada solo en Secrets: VAPID_PRIVADA, + VAPID_PUBLICA, VAPID_CONTACTO opcional).
+  Cuenta > 🔔 Notificaciones: activar/desactivar por dispositivo y "Enviarme una de prueba"; banner en Inicio. En iPhone solo con la
+  app instalada (iOS 16.4+). La función carga el motor `liquidacion.js` publicado en GitHub Pages (new Function) y manda 1 resumen
+  diario con lo urgente (avisos no-info, novedades a confirmar, hallazgos del robot para admin, acuerdos/novedades para el empleado).
+  Mail: en la fase final con SMTP.
 - Portal del empleado parte 2 ✔ (`supabase/18_acuerdos.sql`): acuerdos y comunicaciones con firma electrónica (Ley 25.506).
   El empleador redacta desde la ficha con modelos (medio de pago, descuento de aporte, vacaciones, horario, preaviso, comunicación, otro)
   que se completan con los datos de la ficha y de Mis datos; una vez enviado el texto no se puede editar (sin permiso de update;

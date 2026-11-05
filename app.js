@@ -353,6 +353,7 @@ async function cargarInicio() {
 
   // ---- Tareas pendientes (avisos) ----
   cargarAvisos(lista).catch((err) => console.error('avisos', err));
+  mostrarBannerNotif().catch(console.error);
 }
 
 el('listaPasos').addEventListener('click', (ev) => {
@@ -1508,6 +1509,7 @@ async function cargarCuenta() {
   ['formEmail', 'formClave', 'formBorrar'].forEach((id) => { el(id).reset(); limpiarMarcas(el(id)); });
   const { data: { user } } = await db.auth.getUser();
   el('emailActual').textContent = user?.email || '';
+  actualizarNotif().catch(console.error);
 }
 
 el('formEmail').addEventListener('submit', async (ev) => {
@@ -1565,6 +1567,97 @@ el('formBorrar').addEventListener('submit', async (ev) => {
   if (error) { mostrarEstado(estado, 'No se pudo borrar la cuenta. Probá de nuevo.', true); console.error(error); return; }
   await db.auth.signOut({ scope: 'local' });
   mostrarLogin('vistaEntrar', 'Tu cuenta y todos tus datos fueron borrados.');
+});
+
+// ================= Notificaciones al celular (Web Push) =================
+const soportaPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const esIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const instalada = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const CLAVE_NOTIF_NO = 'casaenregla_notif_no';
+
+function claveBytes(b64) {
+  const p = '='.repeat((4 - (b64.length % 4)) % 4);
+  const bin = atob((b64 + p).replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+}
+
+async function suscripcionActual() {
+  if (!soportaPush) return null;
+  const reg = await navigator.serviceWorker.ready;
+  return reg.pushManager.getSubscription();
+}
+
+async function actualizarNotif() {
+  const estado = el('estadoNotif');
+  const btn = el('btnNotifActivar'), prueba = el('btnNotifPrueba');
+  prueba.hidden = true;
+  if (esIOS && !instalada()) {
+    estado.textContent = 'En iPhone, primero instalá la app: en Safari tocá Compartir → "Agregar a inicio", y abrila desde el ícono. Ahí vas a poder activarlas.';
+    btn.hidden = true;
+    return;
+  }
+  if (!soportaPush) { estado.textContent = 'Este navegador no permite notificaciones.'; btn.hidden = true; return; }
+  btn.hidden = false;
+  if (Notification.permission === 'denied') {
+    estado.textContent = 'Las notificaciones están bloqueadas para esta app. Habilitalas en la configuración del celular o del navegador.';
+    btn.hidden = true;
+    return;
+  }
+  const sub = await suscripcionActual();
+  if (sub) {
+    estado.textContent = '✓ Activadas en este dispositivo. Te avisamos una vez por día si hay algo urgente (vencimientos, firmas, novedades).';
+    btn.textContent = 'Desactivar en este dispositivo';
+    prueba.hidden = false;
+  } else {
+    estado.textContent = 'Recibí un aviso por día con lo urgente: sueldos y VEP por vencer, liquidaciones pendientes, firmas y novedades.';
+    btn.textContent = 'Activar en este dispositivo';
+  }
+}
+
+async function activarNotif() {
+  const permiso = await Notification.requestPermission();
+  if (permiso !== 'granted') { toast('No diste permiso para las notificaciones.', true); return false; }
+  const reg = await navigator.serviceWorker.ready;
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: claveBytes(CONFIG.VAPID_PUBLICA) });
+  const j = sub.toJSON();
+  const { error } = await db.from('suscripciones_push').upsert(
+    { endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, dispositivo: navigator.userAgent.slice(0, 200) },
+    { onConflict: 'endpoint' });
+  if (error) { toast('No se pudo guardar la suscripción. ¿Corriste el SQL 21?', true); console.error(error); return false; }
+  toast('✓ Notificaciones activadas.');
+  return true;
+}
+
+el('btnNotifActivar').addEventListener('click', async () => {
+  const sub = await suscripcionActual();
+  if (sub) {
+    await db.from('suscripciones_push').delete().eq('endpoint', sub.endpoint);
+    await sub.unsubscribe();
+    toast('Notificaciones desactivadas en este dispositivo.');
+  } else {
+    await activarNotif();
+  }
+  actualizarNotif();
+});
+
+el('btnNotifPrueba').addEventListener('click', async () => {
+  const { data, error } = await db.functions.invoke('enviar-avisos', { body: { prueba: true } });
+  if (error || !data || !data.enviadas) { toast('No se pudo enviar la prueba. ¿Está instalada la función "enviar-avisos"?', true); console.error(error, data); return; }
+  toast('✓ Enviada: te tiene que llegar en unos segundos.');
+});
+
+// Invitación en Inicio (si se puede activar y todavía no se decidió)
+async function mostrarBannerNotif() {
+  let dijoNo = false;
+  try { dijoNo = localStorage.getItem(CLAVE_NOTIF_NO) === '1'; } catch { /* sin almacenamiento */ }
+  const puede = soportaPush && (!esIOS || instalada()) && Notification.permission === 'default';
+  el('bannerNotif').hidden = dijoNo || !puede || !!(await suscripcionActual());
+}
+el('btnBannerNotif').addEventListener('click', async () => { if (await activarNotif()) el('bannerNotif').hidden = true; });
+el('btnBannerNotifNo').addEventListener('click', () => {
+  try { localStorage.setItem(CLAVE_NOTIF_NO, '1'); } catch { /* sin almacenamiento */ }
+  el('bannerNotif').hidden = true;
+  toast('Podés activarlas cuando quieras desde Cuenta.');
 });
 
 // ================= Login, crear cuenta, recuperar contraseña =================
