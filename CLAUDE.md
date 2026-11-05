@@ -34,6 +34,34 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Antes de cobrar: revisar cumplimiento de la Ley de Protección de Datos Personales (25.326).
 - No imitar nombre ni estética de AFIP/ARCA: tiene que quedar claro que es una app privada.
 
+## Reglas de liquidación (decididas 2026-11-04)
+- **Mensualizado** (≥ 24 hs semanales, parámetro `horas_mensualizado`): valor mensual × horas semanales ÷ 48 (Res. CNTCP 1/2020).
+- **Por hora** (< 24 hs): horas realmente trabajadas en el mes (días de trabajo del calendario × horas/día − faltas + extras).
+- **Antigüedad**: 1% por año sobre el mensual, contando desde 01/09/2020. **Zona desfavorable**: 31% (provincias patagónicas + Patagones).
+- **Horas extra** (> 8 hs diarias o 48 semanales): 50% días comunes; 100% sábado después de las 13, domingo y feriado (art. 25 Ley 26.844, no lo cambió la Ley 27.802).
+- **Faltas injustificadas**: forma clásica: sueldo ÷ 30 × días de falta (por hora: no se pagan esas horas).
+- **Aportes**: por defecto NO se descuentan del recibo (los paga el empleador). Opción por empleado "descontar aporte de obra social",
+  solo con acuerdo previo con el empleado. Montos fijos de ARCA por franja horaria (< 12, 12 a < 16, ≥ 16) y tipo (activo / menor de 18 / jubilado): van en una tabla que se actualiza todos los meses.
+- **Ley 27.802 (B.O. 6/3/2026)** modificó la 26.844: período de prueba 6 meses (art. 7), jornada 8 hs/48 semanales con descanso de 35 hs desde el sábado 13 hs (art. 14),
+  y **el recibo debe ser electrónico, emitido por el sistema que determine ARCA (art. 20)** → el recibo legal lo emite ARCA; CasaEnRegla calcula, arma el detalle y ayuda a cargarlo.
+
+## Recibo oficial de ARCA (investigado 2026-11-04)
+- **RG ARCA 5850/2026** (BO 21/05/2026, desde devengado mayo 2026): el recibo se emite SOLO en forma electrónica en el servicio con Clave Fiscal
+  "Personal de Casas Particulares" (Registro Especial, RG 3491) → ficha del trabajador → "Generar recibo de sueldo".
+  Se informa: período, modalidad de liquidación, remuneración y demás conceptos. Sin firma del empleador (vale la Clave Fiscal).
+  - Pago electrónico: conservar el **nº de transacción** del comprobante (necesario para deducir en Ganancias).
+  - Pago en efectivo (o si el trabajador lo pide): imprimir por duplicado; el trabajador firma el duplicado que guarda el empleador.
+  - El trabajador ve el recibo en su Clave Fiscal; el empleador ve la "fecha de lectura".
+- **RG ARCA 5912/2026** (vigente 15/10/2026): "Recibo Asistido": ARCA sugiere zona desfavorable, antigüedad y SAC. Faltas y horas extra se cargan a mano.
+- **No hay web service/API de ARCA** para casas particulares ni recibos (revisado el catálogo oficial de web services). No automatizar el ingreso
+  con la Clave Fiscal del usuario (riesgo de seguridad y legal). → CasaEnRegla calcula y muestra una **guía de carga** con los valores exactos para copiar en ARCA.
+- **Contenido mínimo del recibo (art. 21 Ley 26.844)**: empleador (nombre, domicilio, CUIT/CUIL); trabajador (nombre, categoría); cada concepto y cómo se calcula;
+  bruto (y horas/jornadas si es por hora, período); retenciones; neto en números y letras; constancia de entrega; fecha de ingreso y categoría; lugar y fecha de pago.
+- **Plazo de pago (art. 19)**: mensualizados, hasta el 4º día hábil del mes siguiente; por hora, al terminar la jornada o la semana, según lo acordado.
+
+## Ideas futuras
+- **Acceso del empleado**: que el empleado vea sus recibos y los acuerdos (ej. descuento de aportes) y los acepte con firma electrónica, quedando asentado.
+
 ## Etapas
 1. **Versión para uso propio** (pruebo con mis propios datos; todavía no tengo empleada).
 2. Prueba gratis con unos 10 conocidos que tengan empleada.
@@ -58,6 +86,12 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Gestión de usuario (en prueba): crear cuenta (con aceptación Ley 25.326 guardada en metadata), olvidé contraseña,
   "Mis datos" del empleador (tabla `empleadores`, incluye lugar de trabajo del personal), cambiar email/contraseña,
   eliminar cuenta (función `borrar_mi_cuenta`, borra en cascada). Mails en español ya escritos en `supabase/mails_en_espanol.md`, pero Supabase no deja cargarlos sin SMTP propio: por ahora salen en inglés.
+- Escalas (`supabase/04_escalas.sql`: tablas `escalas` y `parametros`, solo lectura para usuarios) y
+  liquidación mensual (`supabase/05_liquidaciones.sql`: `aportes_arca`, `liquidaciones`; motor de cálculo puro en `liquidacion.js`).
+  Pantalla "Liquidar": novedades (faltas, extras 50/100, horas en feriado), otros conceptos rem/no rem (los "todos los meses"
+  se guardan en `empleados.conceptos_fijos`), detalle, neto en letras y monto a pagar en ARCA.
+- Siguiente: pantalla "Cargar en ARCA" (valores para copiar), registrar pago (fecha, medio, nº transacción), enviar detalle por WhatsApp.
+- Pendiente: aguinaldo (SAC), vacaciones, avisos, liquidación final.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae
   Supabase gratis solo manda a emails del equipo del proyecto y tiene pocos envíos por hora.

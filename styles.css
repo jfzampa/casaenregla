@@ -180,4 +180,38 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .visor video { border-radius: 12px; }
 .estado-visor { color: #fff; text-align: center; margin: 14px 0 0; }
 
+/* ----- Escala vigente en la ficha del empleado ----- */
+.caja-escala { background: #eef7f2; border: 1px solid #cfe8db; border-radius: 10px; padding: 10px 12px; margin: 0 0 12px; font-size: .9rem; }
+.caja-escala .montos { display: flex; gap: 16px; margin-top: 4px; }
+.caja-escala .montos b { display: block; font-size: 1.05rem; color: var(--azul); }
+.caja-escala small { color: var(--gris); }
+
+/* ----- Lista: tarjeta con botón Liquidar ----- */
+.item-fila { display: flex; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+.item-fila .item { margin: 0; flex: 1; min-width: 0; }
+.btn-liquidar {
+  flex: none; border: none; border-radius: 12px; padding: 0 14px; background: var(--azul); color: #fff;
+  font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
+}
+
+/* ----- Liquidación ----- */
+.otro { border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+.otro .fila { align-items: flex-end; }
+.otro .quitar { background: none; border: none; color: var(--error); font-size: .85rem; cursor: pointer; padding: 0; text-decoration: underline; }
+.otro label { margin-bottom: 8px; }
+.otro .opcion { font-size: .9rem; margin: 0; }
+
+.tabla-liq { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.tabla-liq td { padding: 8px 0; border-bottom: 1px solid #eef0f2; vertical-align: top; }
+.tabla-liq td.monto { text-align: right; white-space: nowrap; padding-left: 8px; }
+.tabla-liq small { display: block; color: var(--gris); font-size: .78rem; }
+.tabla-liq .negativo { color: var(--error); }
+.tabla-liq tr.subtotal td { font-weight: 600; border-bottom: none; padding-top: 10px; }
+.neto { background: var(--azul); color: #fff; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+.neto b { display: block; font-size: 1.5rem; }
+.neto small { opacity: .85; }
+.info-liq { font-size: .85rem; color: var(--gris); margin: 0 0 8px; }
+.caja-arca { background: #f4f6f5; border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: .88rem; }
+.avisos { background: #fff7e0; border: 1px solid #f0d78a; color: #6b5310; border-radius: 10px; padding: 8px 12px 8px 28px; margin: 0 0 10px; font-size: .88rem; }
+
 .pie { text-align: center; font-size: .75rem; color: var(--gris); padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }

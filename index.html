@@ -191,6 +191,7 @@
             <label class="opcion"><input type="radio" name="modalidad" value="con_retiro" required> Con retiro</label>
             <label class="opcion"><input type="radio" name="modalidad" value="sin_retiro"> Sin retiro (vive en la casa)</label>
           </fieldset>
+          <div id="cajaEscala" class="caja-escala" hidden></div>
           <label>Horas semanales <input name="horas_semanales" type="number" min="1" max="48" inputmode="numeric"></label>
           <fieldset>
             <legend>Días de trabajo</legend>
@@ -206,8 +207,56 @@
           </fieldset>
         </section>
 
+        <section class="tarjeta">
+          <h3>Aportes</h3>
+          <label class="opcion"><input type="checkbox" name="es_jubilado"> Es jubilado/a</label>
+          <label class="opcion"><input type="checkbox" name="descuenta_aporte"> Descontar el aporte de obra social del sueldo</label>
+          <p class="ayuda">Solo si lo acordaron con el empleado. Si no se tilda, los aportes los paga entero el empleador.</p>
+        </section>
+
         <p class="errores" role="alert"></p>
         <button type="submit" class="boton boton-principal">Guardar</button>
+        <p class="estado estado-guardar" role="status"></p>
+      </form>
+    </div>
+
+    <!-- ===== Liquidar mes ===== -->
+    <div id="vistaLiquidar" class="vista" hidden>
+      <button type="button" class="link volver" data-vista="vistaLista">← Volver a mis empleados</button>
+      <h2 id="tituloLiq">Liquidar</h2>
+
+      <form id="formLiq" novalidate>
+        <section class="tarjeta">
+          <label>Mes a liquidar <input type="month" name="periodo" required></label>
+          <p class="estado estado-liq" role="status"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h3>Novedades del mes</h3>
+          <label>Faltas sin aviso (días) <input name="faltas_dias" type="number" min="0" step="0.5" inputmode="decimal"></label>
+          <div class="fila">
+            <label>Horas extra al 50% <input name="horas_extra_50" type="number" min="0" step="0.5" inputmode="decimal"></label>
+            <label>Horas extra al 100% <input name="horas_extra_100" type="number" min="0" step="0.5" inputmode="decimal"></label>
+          </div>
+          <label>Horas trabajadas en feriado <input name="horas_feriado" type="number" min="0" step="0.5" inputmode="decimal"></label>
+          <p class="ayuda">Extra al 50%: días comunes. Al 100%: sábados después de las 13, domingos y feriados (fuera de la jornada habitual).
+            "Horas en feriado": las de su jornada normal que trabajó un feriado (se pagan dobles).</p>
+        </section>
+
+        <section class="tarjeta">
+          <h3>Otros conceptos</h3>
+          <div id="listaOtros"></div>
+          <button type="button" id="btnAgregarOtro" class="boton boton-secundario borde">+ Agregar concepto</button>
+          <p class="ayuda">Ej.: reintegro de transporte (no remunerativo), premio (remunerativo). Tildá "Todos los meses" para que se repita solo.</p>
+        </section>
+
+        <section class="tarjeta">
+          <h3>Liquidación</h3>
+          <div id="resultadoLiq"><p class="ayuda">Cargando…</p></div>
+        </section>
+
+        <p class="errores" role="alert"></p>
+        <button type="submit" class="boton boton-principal">Guardar liquidación</button>
         <p class="estado estado-guardar" role="status"></p>
       </form>
     </div>
@@ -347,6 +396,7 @@
   <script src="https://unpkg.com/@zxing/library@0.21.3/umd/index.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
   <script src="config.js"></script>
+  <script src="liquidacion.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
