@@ -288,7 +288,8 @@ async function cargarInicio() {
   const ahora = new Date();
   const h = ahora.getHours();
   el('saludo').textContent = `${h < 12 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches'}${nombreUsuario ? `, ${nombreUsuario.split(' ')[0]}` : ''}`;
-  el('fechaHoy').textContent = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const fechaTxt = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  el('fechaHoy').textContent = fechaTxt.charAt(0).toUpperCase() + fechaTxt.slice(1); // "Jueves, 5 de noviembre"
 
   const mes = mesActual();
   const [a, m] = mes.split('-').map(Number);
