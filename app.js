@@ -233,13 +233,14 @@ async function cargarLista() {
   if (error) { mostrarEstado(estadoLista, 'No se pudo cargar la lista. Revisá la conexión.', true); console.error(error); return; }
   mostrarEstado(estadoLista, mensajeLista);
   mensajeLista = '';
+  data.sort((x, y) => (x.fecha_egreso ? 1 : 0) - (y.fecha_egreso ? 1 : 0));
   empleados = data;
   listaEl.innerHTML = data.length
     ? data.map((e) => `
         <div class="item-fila">
           <button type="button" class="item" data-id="${e.id}">
             <b>${escapar(e.apellido)}, ${escapar(e.nombre)}</b>
-            <span>${e.categoria}ª ${CATEGORIAS[e.categoria] || ''} · ${e.modalidad === 'sin_retiro' ? 'Sin retiro' : 'Con retiro'} · desde ${fechaCorta(e.fecha_ingreso)}</span>
+            <span>${e.categoria}ª ${CATEGORIAS[e.categoria] || ''} · ${e.modalidad === 'sin_retiro' ? 'Sin retiro' : 'Con retiro'} · desde ${fechaCorta(e.fecha_ingreso)}${e.fecha_egreso ? ` · <b class="baja">Baja ${fechaCorta(e.fecha_egreso)}</b>` : ''}</span>
           </button>
           <button type="button" class="btn-liquidar" data-liquidar="${e.id}">💰<br>Liquidar</button>
         </div>`).join('')
@@ -433,7 +434,8 @@ async function abrirFicha(empleado) {
     `${e.categoria}ª ${CATEGORIAS[e.categoria] || ''}`,
     e.modalidad === 'sin_retiro' ? 'Sin retiro' : 'Con retiro',
     e.horas_semanales ? `${e.horas_semanales} hs semanales` : '',
-    `Ingreso ${fechaCorta(e.fecha_ingreso)} (${antiguedadTexto(e.fecha_ingreso)})`,
+    `Ingreso ${fechaCorta(e.fecha_ingreso)}${e.fecha_egreso ? '' : ` (${antiguedadTexto(e.fecha_ingreso)})`}`,
+    e.fecha_egreso ? `Baja ${fechaCorta(e.fecha_egreso)} (${(Liquidacion.CAUSAS_EGRESO[e.causa_egreso] || e.causa_egreso || '').toLowerCase()})` : '',
   ].filter(Boolean).join(' · ');
   el('resumenFicha').innerHTML = '<p class="ayuda">Cargando…</p>';
   el('listaLiqFicha').innerHTML = '';
@@ -508,6 +510,7 @@ let liq = { empleado: null, datos: null, resultado: null };
 const mesActual = () => hoyIso().slice(0, 7);
 const NOMBRE_MES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const nombrePeriodo = (p) => `${NOMBRE_MES[Number(p.slice(5, 7)) - 1]} ${p.slice(0, 4)}`;
+const ultimoDiaDe = (p) => { const [a, m] = p.split('-').map(Number); return `${p}-${String(new Date(a, m, 0).getDate()).padStart(2, '0')}`; };
 
 // ---- Renglones de "Otros conceptos" ----
 function agregarOtro(o = {}) {
@@ -548,7 +551,16 @@ function leerNovedades() {
     faltas_dias: n('faltas_dias'), horas_extra_50: n('horas_extra_50'),
     horas_extra_100: n('horas_extra_100'), horas_feriado: n('horas_feriado'), otros: leerOtros(),
     vacaciones: n('vac_dias') > 0 ? { dias: n('vac_dias'), desde: formLiq.elements.vac_desde.value || null } : null,
-    sac: esMesSac() && formLiq.elements.incluir_sac.checked
+    egreso: formLiq.elements.hay_egreso.checked && formLiq.elements.egreso_fecha.value ? {
+      fecha: formLiq.elements.egreso_fecha.value,
+      causa: formLiq.elements.egreso_causa.value,
+      preaviso_otorgado: formLiq.elements.egreso_preaviso.checked,
+      mejor_remuneracion: n('egreso_mejor'),
+      mejor_manual: liq.mejorAnioManual,
+      sac_indemn: formLiq.elements.egreso_sac_indemn.checked,
+      vac_pendientes: n('egreso_vac_ajuste'),
+    } : null,
+    sac: sacVisible() && formLiq.elements.incluir_sac.checked
       ? { incluir: true, mejor_remuneracion: n('mejor_remuneracion'), manual: liq.sacManual }
       : null,
   };
@@ -559,7 +571,7 @@ async function datosDelPeriodo(empleado, periodo) {
   const fecha = `${periodo}-01`;
   const [a, m] = periodo.split('-').map(Number);
   const inicioSem = `${a}-${m <= 6 ? '01' : '07'}-01`;
-  const [escala, params, aportes, perfil, existente, semestre] = await Promise.all([
+  const [escala, params, aportes, perfil, existente, semestre, anioAtras] = await Promise.all([
     escalaVigente(empleado.categoria, empleado.modalidad, fecha),
     db.from('parametros').select('*').lte('vigencia_desde', fecha).order('vigencia_desde', { ascending: false }),
     db.from('aportes_arca').select('*').lte('periodo_desde', fecha).order('periodo_desde', { ascending: false }),
@@ -567,8 +579,17 @@ async function datosDelPeriodo(empleado, periodo) {
     db.from('liquidaciones').select('*').eq('empleado_id', empleado.id).eq('periodo', fecha).maybeSingle(),
     db.from('liquidaciones').select('periodo, total_remunerativo, detalle').eq('empleado_id', empleado.id)
       .gte('periodo', inicioSem).lt('periodo', fecha),
+    db.from('liquidaciones').select('periodo, total_remunerativo, detalle').eq('empleado_id', empleado.id)
+      .gte('periodo', `${m === 12 ? a : a - 1}-${String((m % 12) + 1).padStart(2, '0')}-01`).lt('periodo', fecha),
   ]);
-  for (const r of [params, aportes, perfil, existente, semestre]) if (r.error) throw r.error;
+  for (const r of [params, aportes, perfil, existente, semestre, anioAtras]) if (r.error) throw r.error;
+
+  // Mejor remuneración de los últimos 12 meses (art. 48), sin aguinaldos
+  let mejorAnio = { importe: 0, periodo: null, meses: anioAtras.data.length };
+  for (const l of anioAtras.data) {
+    const rem = Number(l.total_remunerativo) - Number((l.detalle && l.detalle.sac_importe) || 0);
+    if (rem > mejorAnio.importe) mejorAnio = { ...mejorAnio, importe: rem, periodo: l.periodo.slice(0, 7) };
+  }
 
   // Mayor remuneración guardada en los meses anteriores del semestre (sin contar aguinaldos)
   let mejorGuardada = { importe: 0, periodo: null, meses: semestre.data.length };
@@ -591,7 +612,7 @@ async function datosDelPeriodo(empleado, periodo) {
     ? Liquidacion.esZonaDesfavorable(pf.provincia, pf.localidad)
     : Liquidacion.esZonaDesfavorable(pf.trabajo_provincia, pf.trabajo_localidad)) : false;
 
-  return { escala, param, aportes: filasAportes, zona, sinPerfil: !pf, existente: existente.data, mejorGuardada };
+  return { escala, param, aportes: filasAportes, zona, sinPerfil: !pf, existente: existente.data, mejorGuardada, mejorAnio };
 }
 
 function abrirLiquidacion(empleado, periodo = mesActual()) {
@@ -618,6 +639,13 @@ async function cargarPeriodo() {
     : '';
   formLiq.elements.incluir_sac.checked = false;
   liq.sacManual = false;
+  liq.sacTocado = false;
+  liq.mejorAnioManual = false;
+  formLiq.elements.hay_egreso.checked = false;
+  ['egreso_fecha', 'egreso_mejor', 'egreso_vac_ajuste'].forEach((c) => { formLiq.elements[c].value = ''; });
+  formLiq.elements.egreso_causa.value = 'renuncia';
+  formLiq.elements.egreso_preaviso.checked = false;
+  formLiq.elements.egreso_sac_indemn.checked = true;
   el('cajaSac').hidden = !esMesSac();
   resultadoLiq.innerHTML = '<p class="ayuda">Cargando…</p>';
 
@@ -637,6 +665,17 @@ async function cargarPeriodo() {
     const n = ex.novedades || {};
     ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado'].forEach((c) => { formLiq.elements[c].value = n[c] || ''; });
     (n.otros || []).forEach(agregarOtro);
+    if (n.egreso) {
+      formLiq.elements.hay_egreso.checked = true;
+      formLiq.elements.egreso_fecha.value = n.egreso.fecha || '';
+      formLiq.elements.egreso_causa.value = n.egreso.causa || 'renuncia';
+      formLiq.elements.egreso_preaviso.checked = !!n.egreso.preaviso_otorgado;
+      formLiq.elements.egreso_sac_indemn.checked = n.egreso.sac_indemn !== false;
+      formLiq.elements.egreso_vac_ajuste.value = n.egreso.vac_pendientes || '';
+      formLiq.elements.egreso_mejor.value = n.egreso.mejor_remuneracion || '';
+      liq.mejorAnioManual = !!n.egreso.mejor_manual;
+      liq.sacTocado = true;
+    }
     if (n.vacaciones) {
       formLiq.elements.vac_dias.value = n.vacaciones.dias || '';
       formLiq.elements.vac_desde.value = n.vacaciones.desde || '';
@@ -660,10 +699,13 @@ async function cargarPeriodo() {
 formLiq.elements.periodo.addEventListener('change', cargarPeriodo);
 formLiq.addEventListener('input', (ev) => {
   if (ev.target.name === 'mejor_remuneracion') liq.sacManual = true;
+  if (ev.target.name === 'egreso_mejor') liq.mejorAnioManual = true;
+  if (ev.target.name === 'incluir_sac') liq.sacTocado = true;
   if (ev.target.name === 'incluir_sac' && ev.target.checked) liq.sacManual = false;
   if (ev.target.name !== 'periodo') recalcular();
 });
 const esMesSac = () => ['06', '12'].includes((formLiq.elements.periodo.value || '').slice(5, 7));
+const sacVisible = () => esMesSac() || formLiq.elements.hay_egreso.checked;
 
 function recalcular() {
   const d = liq.datos;
@@ -675,10 +717,35 @@ function recalcular() {
     return;
   }
   // Aguinaldo: si no se escribió a mano, proponer la mayor entre los meses guardados del semestre y este mes
-  const conSac = esMesSac() && formLiq.elements.incluir_sac.checked;
+  // ---- Liquidación final ----
+  const hayEgreso = formLiq.elements.hay_egreso.checked;
+  el('bloqueEgreso').hidden = !hayEgreso;
+  el('cajaSac').hidden = !sacVisible();
+  if (hayEgreso) {
+    if (!formLiq.elements.egreso_fecha.value) formLiq.elements.egreso_fecha.value = ultimoDiaDe(periodo);
+    const esDespido = formLiq.elements.egreso_causa.value === 'despido_sin_causa';
+    formLiq.querySelectorAll('.solo-despido').forEach((n) => { n.hidden = !esDespido; });
+    if (!formLiq.elements.incluir_sac.checked && !liq.sacTocado) formLiq.elements.incluir_sac.checked = true; // SAC proporcional siempre
+    if (esDespido && !liq.mejorAnioManual) {
+      const remMes = Liquidacion.calcular({ empleado: liq.empleado, periodo, escala: d.escala, param: d.param, zona: d.zona, aportes: d.aportes, novedades: { otros: leerOtros() } }).base_mes_completo;
+      const g = d.mejorAnio;
+      formLiq.elements.egreso_mejor.value = Math.max(g.importe, remMes).toFixed(2);
+      el('origenMejorAnio').textContent = (g.importe > remMes ? `Tomada de ${nombrePeriodo(g.periodo)} (${pesos(g.importe)}).` : `Es la del sueldo completo de este mes (${pesos(remMes)}).`) +
+        (g.meses < 11 ? ` Solo hay ${g.meses} meses del último año guardados en la app: si alguno fue mayor, escribilo a mano.` : '');
+    } else if (liq.mejorAnioManual) el('origenMejorAnio').textContent = 'Valor escrito a mano.';
+    el('ayudaEgreso').textContent = {
+      renuncia: 'Renuncia: días trabajados + aguinaldo proporcional + vacaciones no gozadas. El trabajador debe preavisar 10 días.',
+      despido_sin_causa: 'Despido sin causa: además, preaviso (10 días con menos de 1 año, 30 con más) e integración del mes si no se preavisó, e indemnización por antigüedad (art. 48).',
+      periodo_prueba: 'Período de prueba (6 meses): sin preaviso ni indemnización. Corresponden días trabajados, aguinaldo y vacaciones proporcionales.',
+      mutuo_acuerdo: 'Mutuo acuerdo: sin indemnización (salvo lo que pacten: cargalo en "Otros conceptos"). Conviene formalizarlo por escrito.',
+      despido_con_causa: 'Despido con causa: sin preaviso ni indemnización. La causa debe ser grave y comunicarse por escrito.',
+    }[formLiq.elements.egreso_causa.value] || '';
+  }
+
+  const conSac = sacVisible() && formLiq.elements.incluir_sac.checked;
   el('bloqueSac').hidden = !conSac;
   if (conSac) {
-    const sinSac = { ...leerNovedades(), sac: null };
+    const sinSac = { ...leerNovedades(), sac: null, egreso: null };
     const remMes = Liquidacion.calcular({ empleado: liq.empleado, periodo, escala: d.escala, param: d.param, zona: d.zona, aportes: d.aportes, novedades: sinSac }).total_remunerativo;
     const g = d.mejorGuardada;
     if (!liq.sacManual) {
@@ -768,6 +835,14 @@ formLiq.addEventListener('submit', async (ev) => {
   }
   liq.empleado.conceptos_fijos = fijos;
   liq.fila = res.data;
+  // Baja del empleado (o anulación de la baja si se destildó)
+  const eg = novedades.egreso;
+  const bajaEnEsteMes = liq.empleado.fecha_egreso && liq.empleado.fecha_egreso.slice(0, 7) === periodo;
+  if (eg || bajaEnEsteMes) {
+    const cambio = eg ? { fecha_egreso: eg.fecha, causa_egreso: eg.causa } : { fecha_egreso: null, causa_egreso: null };
+    const { error: errBaja } = await db.from('empleados').update(cambio).eq('id', liq.empleado.id);
+    if (errBaja) console.error(errBaja); else Object.assign(liq.empleado, cambio);
+  }
   mostrarCierre();
   mostrarEstado(estado, `✓ Liquidación de ${nombrePeriodo(periodo)} guardada. Abajo podés cerrar el mes.`);
 });

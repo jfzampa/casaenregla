@@ -16,14 +16,34 @@
   }
 
   // Cantidad de días de trabajo (según los días de la semana elegidos) en un mes "aaaa-mm"
-  function diasDeTrabajoEnMes(periodo, dias) {
+  function diasDeTrabajoEnMes(periodo, dias, desdeDia = 1, hastaDia = 31) {
     const [a, m] = periodo.split('-').map(Number);
     const elegidos = new Set((dias || []).map((d) => DIA_SEMANA[d]));
-    const ultimo = new Date(a, m, 0).getDate();
+    const ultimo = Math.min(new Date(a, m, 0).getDate(), hastaDia);
     let n = 0;
-    for (let d = 1; d <= ultimo; d++) if (elegidos.has(new Date(a, m - 1, d).getDay())) n++;
+    for (let d = Math.max(1, desdeDia); d <= ultimo; d++) if (elegidos.has(new Date(a, m - 1, d).getDay())) n++;
     return n;
   }
+
+  // Meses completos entre dos fechas aaaa-mm-dd
+  function mesesEntre(desde, hasta) {
+    const [a1, m1, d1] = desde.split('-').map(Number);
+    const [a2, m2, d2] = hasta.split('-').map(Number);
+    let meses = (a2 - a1) * 12 + (m2 - m1);
+    if (d2 < d1) meses--;
+    return Math.max(0, meses);
+  }
+  // Suma meses a una fecha aaaa-mm-dd
+  function sumarMeses(iso, n) {
+    const [a, m, d] = iso.split('-').map(Number);
+    const f = new Date(a, m - 1 + n, d);
+    return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+  }
+
+  const CAUSAS_EGRESO = {
+    renuncia: 'Renuncia', despido_sin_causa: 'Despido sin causa', periodo_prueba: 'Fin en período de prueba',
+    mutuo_acuerdo: 'Mutuo acuerdo', despido_con_causa: 'Despido con causa',
+  };
 
   // Años completos de antigüedad al último día del período, contando desde "desde" (aaaa-mm-dd)
   function aniosAntiguedad(fechaIngreso, periodo, desde) {
@@ -72,17 +92,35 @@
 
     if (!horasSem) avisos.push('Falta cargar las horas semanales en la ficha del empleado.');
 
+    // ---- Días trabajados del mes (si ingresó o egresó en este mes) ----
+    const [pa, pm] = periodo.split('-').map(Number);
+    const diasDelMes = new Date(pa, pm, 0).getDate();
+    const eg = novedades.egreso && novedades.egreso.fecha && novedades.egreso.fecha.slice(0, 7) === periodo ? novedades.egreso : null;
+    const diaIng = empleado.fecha_ingreso && empleado.fecha_ingreso.slice(0, 7) === periodo ? Number(empleado.fecha_ingreso.slice(8, 10)) : 1;
+    const diaHasta = eg ? Number(eg.fecha.slice(8, 10)) : diasDelMes;
+    const diasTrab = Math.max(0, diaHasta - diaIng + 1);
+    const mesCompleto = diasTrab >= diasDelMes;
+
     // ---- Sueldo básico ----
     let basico = 0;
+    let basicoCompleto = 0; // el del mes entero (base de preaviso, integración y vacaciones no gozadas)
     let horasLiquidadas = null;
     if (mensualizado) {
       const h = Math.min(horasSem, 48);
-      basico = valorMensual * h / 48;
-      add('Sueldo básico', `Mensual $${fmt(valorMensual)} × ${h} hs ÷ 48`, basico, 'rem');
+      basicoCompleto = valorMensual * h / 48;
+      if (mesCompleto) {
+        basico = basicoCompleto;
+        add('Sueldo básico', `Mensual $${fmt(valorMensual)} × ${h} hs ÷ 48`, basico, 'rem');
+      } else {
+        const d = Math.min(diasTrab, 30);
+        basico = basicoCompleto / 30 * d;
+        add('Sueldo básico', `Mensual $${fmt(valorMensual)} × ${h} hs ÷ 48 = $${fmt(basicoCompleto)} ÷ 30 × ${d} días trabajados`, basico, 'rem');
+      }
     } else if (horasSem) {
       if (!diasSemana) avisos.push('Para calcular por hora hacen falta los días de trabajo en la ficha del empleado.');
-      const diasMes = diasDeTrabajoEnMes(periodo, empleado.dias);
       const horasDia = diasSemana ? horasSem / diasSemana : 0;
+      basicoCompleto = r2(diasDeTrabajoEnMes(periodo, empleado.dias) * horasDia) * valorHora;
+      const diasMes = diasDeTrabajoEnMes(periodo, empleado.dias, diaIng, diaHasta);
       const horas = r2(diasMes * horasDia);
       horasLiquidadas = horas;
       basico = horas * valorHora;
@@ -139,7 +177,7 @@
     // ---- Aguinaldo (SAC), solo si se pidió (junio / diciembre) ----
     let sac = null;
     if (novedades.sac && novedades.sac.incluir && Number(novedades.sac.mejor_remuneracion) > 0) {
-      sac = calcularSac({ periodo, fechaIngreso: empleado.fecha_ingreso, mejorRemuneracion: novedades.sac.mejor_remuneracion });
+      sac = calcularSac({ periodo, fechaIngreso: empleado.fecha_ingreso, mejorRemuneracion: novedades.sac.mejor_remuneracion, fechaEgreso: eg ? eg.fecha : null });
       add(`Aguinaldo (SAC) ${sac.semestre === 1 ? '1er' : '2do'} semestre ${periodo.slice(0, 4)}`, sac.detalle, sac.importe, 'rem');
     }
 
@@ -148,6 +186,50 @@
       const imp = Number(o.importe) || 0;
       if (!o.descripcion || !imp) continue;
       add(o.descripcion, o.tipo === 'norem' ? 'No remunerativo' : 'Remunerativo', imp, o.tipo === 'norem' ? 'norem' : 'rem');
+    }
+
+    // ---- Liquidación final: vacaciones no gozadas, preaviso, integración, indemnización ----
+    if (eg) {
+      const baseMes = basicoCompleto * (1 + (pctAnt + pctZona) / 100);
+      const ingreso = empleado.fecha_ingreso || eg.fecha;
+      const divisor = Number(param.vacaciones_divisor) || 30;
+
+      // Vacaciones no gozadas: proporcionales del año + pendientes de años anteriores
+      const anio = eg.fecha.slice(0, 4);
+      const desdeAnio = ingreso > `${anio}-01-01` ? ingreso : `${anio}-01-01`;
+      const diasAnio = diasEntre(desdeAnio, eg.fecha);
+      const ent = diasVacaciones(ingreso, anio);
+      const propDias = r2(ingreso > `${anio}-06-30` ? diasAnio / 20 : ((ent && ent.dias) || 14) * diasAnio / 365);
+      const pend = Number(eg.vac_pendientes) || 0;
+      const totalVac = r2(propDias + pend);
+      const txtAjuste = pend > 0 ? ` + ${fmt(pend)} pendientes` : pend < 0 ? ` − ${fmt(-pend)} ya gozados` : '';
+      add('Vacaciones no gozadas',
+        `${fmt(propDias)} días proporcionales ${anio}${txtAjuste} = ${fmt(Math.max(0, totalVac))} días × $${fmt(baseMes)} ÷ ${divisor} (indemnizatorio)`,
+        baseMes / divisor * Math.max(0, totalVac), 'norem');
+
+      if (eg.causa === 'despido_sin_causa') {
+        const meses = mesesEntre(ingreso, eg.fecha);
+        const enPrueba = ingreso >= '2026-03-06' && Number(param.periodo_prueba_meses || 6) &&
+          eg.fecha < sumarMeses(ingreso, Number(param.periodo_prueba_meses || 6));
+        if (enPrueba) {
+          avisos.push('El despido es dentro del período de prueba: no corresponden preaviso ni indemnización. Elegí "Fin en período de prueba".');
+        } else {
+          if (!eg.preaviso_otorgado) {
+            const dPre = meses < 12 ? 10 : 30;
+            const pre = baseMes / 30 * dPre;
+            add('Indemnización sustitutiva de preaviso', `${dPre} días (antigüedad ${meses < 12 ? 'menor' : 'mayor'} a 1 año, art. 43) × $${fmt(baseMes)} ÷ 30`, pre, 'norem');
+            const restan = diasDelMes - diaHasta;
+            const integ = restan > 0 ? baseMes / 30 * restan : 0;
+            if (integ) add('Integración mes de despido', `${restan} días hasta fin de mes (art. 44) × $${fmt(baseMes)} ÷ 30`, integ, 'norem');
+            if (eg.sac_indemn) add('SAC s/ preaviso e integración', `$${fmt(pre + integ)} ÷ 12`, (pre + integ) / 12, 'norem');
+          }
+          // Art. 48: 1 mes por año o fracción mayor de 3 meses, sobre la mejor remuneración del último año
+          const aniosCompletos = Math.floor(meses / 12);
+          const anios = Math.max(1, aniosCompletos + (eg.fecha > sumarMeses(ingreso, aniosCompletos * 12 + 3) ? 1 : 0));
+          const mejor = Number(eg.mejor_remuneracion) || baseMes;
+          add('Indemnización por antigüedad', `${anios} × mejor remuneración del último año $${fmt(mejor)} (art. 48)`, mejor * anios, 'norem');
+        }
+      }
     }
 
     // ---- Aportes ARCA ----
@@ -192,6 +274,8 @@
       neto_letras: numeroALetras(neto),
       sac,
       sac_importe: sac ? sac.importe : 0,
+      egreso: eg ? { fecha: eg.fecha, causa: eg.causa, causa_texto: CAUSAS_EGRESO[eg.causa] || eg.causa } : null,
+      base_mes_completo: r2(basicoCompleto * (1 + (pctAnt + pctZona) / 100)),
       pago_arca: pagoArca,
       cargas_empleador: cargasEmpleador,
       costo_total: costoTotal,
@@ -203,13 +287,14 @@
   const diasEntre = (a, b) => Math.round((Date.UTC(...b.split('-').map((n, i) => (i === 1 ? n - 1 : +n))) -
     Date.UTC(...a.split('-').map((n, i) => (i === 1 ? n - 1 : +n)))) / 86400000) + 1;
 
-  function calcularSac({ periodo, fechaIngreso, mejorRemuneracion }) {
+  function calcularSac({ periodo, fechaIngreso, mejorRemuneracion, fechaEgreso = null }) {
     const [a, m] = periodo.split('-').map(Number);
     const semestre = m <= 6 ? 1 : 2;
     const inicio = semestre === 1 ? `${a}-01-01` : `${a}-07-01`;
-    const fin = semestre === 1 ? `${a}-06-30` : `${a}-12-31`;
+    const finSem = semestre === 1 ? `${a}-06-30` : `${a}-12-31`;
+    const fin = fechaEgreso && fechaEgreso < finSem ? fechaEgreso : finSem; // si egresa, hasta el egreso
     const desde = fechaIngreso && fechaIngreso > inicio ? fechaIngreso : inicio;
-    const diasSemestre = diasEntre(inicio, fin);
+    const diasSemestre = diasEntre(inicio, finSem);
     const dias = desde > fin ? 0 : diasEntre(desde, fin);
     const base = Number(mejorRemuneracion) || 0;
     const completo = dias === diasSemestre;
@@ -274,6 +359,8 @@
     const vencVep = habilDesde(`${mesHoy}-${String(param.vep_dia_vencimiento || 10).padStart(2, '0')}`, feriados);
 
     for (const e of empleados) {
+      if (e.fecha_egreso && e.fecha_egreso < `${ant}-01`) continue; // se fue antes del mes anterior
+      const activo = !e.fecha_egreso || e.fecha_egreso >= hoy;
       const quien = e.nombre;
       const liqAnt = liquidaciones.find((l) => l.empleado_id === e.id && l.periodo.slice(0, 7) === ant);
       const liqHoy = liquidaciones.find((l) => l.empleado_id === e.id && l.periodo.slice(0, 7) === mesHoy);
@@ -304,6 +391,8 @@
           }
         }
       }
+
+      if (!activo) continue; // ya no trabaja: no hay avisos del mes actual, vacaciones ni período de prueba
 
       // ---- Mes actual ----
       if (['06', '12'].includes(mesHoy.slice(5, 7)) && !(liqHoy && Number(liqHoy.detalle && liqHoy.detalle.sac_importe))) {
@@ -582,7 +671,7 @@
   }
 
   const api = {
-    calcular, calcularSac, generarAvisos, diaHabil, habilDesde, diasVacaciones, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
+    calcular, calcularSac, generarAvisos, mesesEntre, sumarMeses, CAUSAS_EGRESO, diaHabil, habilDesde, diasVacaciones, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
     analizarReciboArca, analizarVep, claveConcepto, analizarAportesArca,
     analizarTextoEscala, controlarEscala,
   };

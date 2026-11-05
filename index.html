@@ -299,6 +299,37 @@
           <p class="ayuda">Ej.: reintegro de transporte (no remunerativo), premio (remunerativo). Tildá "Todos los meses" para que se repita solo.</p>
         </section>
 
+        <section class="tarjeta" id="cajaEgreso">
+          <h3>Fin de la relación laboral</h3>
+          <label class="opcion"><input type="checkbox" name="hay_egreso"> Este mes termina la relación (liquidación final)</label>
+          <div id="bloqueEgreso" hidden>
+            <div class="fila">
+              <label>Último día trabajado <input name="egreso_fecha" type="date"></label>
+              <label>Causa
+                <select name="egreso_causa">
+                  <option value="renuncia">Renuncia</option>
+                  <option value="despido_sin_causa">Despido sin causa (o indirecto)</option>
+                  <option value="periodo_prueba">Fin en período de prueba</option>
+                  <option value="mutuo_acuerdo">Mutuo acuerdo</option>
+                  <option value="despido_con_causa">Despido con causa</option>
+                </select>
+              </label>
+            </div>
+            <div class="solo-despido">
+              <label class="opcion"><input type="checkbox" name="egreso_preaviso"> Se le dio preaviso (trabajó los días de preaviso)</label>
+              <label>Mejor remuneración mensual del último año (art. 48)
+                <input name="egreso_mejor" type="number" step="0.01" min="0" inputmode="decimal">
+              </label>
+              <p class="ayuda" id="origenMejorAnio"></p>
+              <label class="opcion"><input type="checkbox" name="egreso_sac_indemn" checked> Pagar aguinaldo sobre preaviso e integración</label>
+            </div>
+            <label>Vacaciones: días a sumar (pendientes de años anteriores) o restar (ya gozados este año)
+              <input name="egreso_vac_ajuste" type="number" step="0.5" inputmode="decimal" placeholder="Ej.: 7 o -14">
+            </label>
+            <p class="ayuda" id="ayudaEgreso"></p>
+          </div>
+        </section>
+
         <section class="tarjeta" id="cajaSac" hidden>
           <h3>Aguinaldo (SAC)</h3>
           <label class="opcion"><input type="checkbox" name="incluir_sac"> Incluir el aguinaldo del semestre</label>

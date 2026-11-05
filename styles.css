@@ -144,6 +144,7 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .item b { display: block; font-size: 1.05rem; color: var(--azul); }
 .item span { font-size: .85rem; color: var(--gris); }
 .vacio { text-align: center; color: var(--gris); padding: 24px 8px; }
+.item b.baja { display: inline; font-size: inherit; color: var(--error); }
 
 /* ----- Pestañas de la app ----- */
 .pestanias { display: flex; gap: 4px; background: #e3e8e6; padding: 4px; border-radius: 12px; margin-bottom: 14px; }

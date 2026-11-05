@@ -135,7 +135,14 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   Renglones: "Vacaciones N días" = base ÷ divisor × N y "Días de vacaciones (no trabajados)" = − base ÷ 30 × N (base = básico + antig. + zona).
   Divisor: general **30** (decisión del dueño, sin plus) en `parametros`; cada empleador puede elegir 25 o 30 en Mis datos
   ("Criterios de liquidación", columna `empleadores.vacaciones_divisor`, SQL 14). Vacío = usa el general.
-- Pendiente: liquidación final, novedades día a día durante el mes.
+- Liquidación final ✔ (`supabase/15_egreso.sql`): en Liquidar, "Este mes termina la relación" + último día + causa
+  (renuncia, despido sin causa/indirecto, período de prueba, mutuo acuerdo, despido con causa). Siempre: días trabajados (÷30 × días;
+  por hora: días de trabajo hasta el egreso), SAC proporcional hasta el egreso, vacaciones no gozadas (proporcional del año + ajuste ±,
+  base mes completo ÷ divisor del empleador, no remunerativo). Despido sin causa: preaviso 10/30 días (art. 43) e integración (art. 44)
+  si no se preavisó, SAC s/ ambos (opcional, tildado), indemnización art. 48 (años + fracción > 3 meses, mín. 1, mejor remuneración
+  últimos 12 meses sin SAC, editable). Dentro del período de prueba avisa que no corresponde. Al guardar se registra la baja en
+  `empleados.fecha_egreso/causa_egreso`; las bajas se muestran marcadas y no generan avisos. También: ingreso a mitad de mes = proporcional.
+- Pendiente: novedades día a día durante el mes. No incluido en la final: multas por falta de registración (art. 50), SAC s/ vacaciones no gozadas.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae
   Supabase gratis solo manda a emails del equipo del proyecto y tiene pocos envíos por hora.
