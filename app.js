@@ -355,6 +355,26 @@ async function cargarInicio() {
   // ---- Tareas pendientes (avisos) ----
   cargarAvisos(lista).catch((err) => console.error('avisos', err));
   mostrarBannerNotif().catch(console.error);
+  mostrarEstadoRobot().catch(console.error);
+}
+
+// Estado del robot en Inicio: solo lo ve el admin (para los demás la consulta vuelve vacía por las reglas de la base)
+async function mostrarEstadoRobot() {
+  const caja = el('estadoRobotInicio');
+  const [ult, pend] = await Promise.all([
+    db.from('robot_ejecuciones').select('ejecutado, informe').order('ejecutado', { ascending: false }).limit(1).maybeSingle(),
+    db.from('robot_hallazgos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente'),
+  ]);
+  if (ult.error || !ult.data) { caja.hidden = true; return; }
+  const cuando = new Date(ult.data.ejecutado);
+  const hoy = cuando.toDateString() === new Date().toDateString();
+  const hora = cuando.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+  const fecha = hoy ? `hoy ${hora}` : `${cuando.toLocaleDateString('es-AR')} ${hora}`;
+  caja.innerHTML = pend.count
+    ? `🤖 <b>Robot:</b> encontró ${pend.count} novedad${pend.count === 1 ? '' : 'es'} para aprobar · revisado ${fecha} <span>›</span>`
+    : `🤖 <b>Robot:</b> escalas y aportes al día · revisado ${fecha} <span>›</span>`;
+  caja.classList.toggle('con-novedades', !!pend.count);
+  caja.hidden = false;
 }
 
 el('listaPasos').addEventListener('click', (ev) => {

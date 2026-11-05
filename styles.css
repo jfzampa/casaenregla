@@ -429,3 +429,9 @@ textarea { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; fon
 
 /* Lo marcado como oculto (atributo hidden) se oculta siempre, aunque otra regla le dé display */
 [hidden] { display: none !important; }
+
+/* Estado del robot en Inicio (solo admin) */
+.estado-robot { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: #eef7f2; border: 1px solid #cfe8db;
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; font: inherit; font-size: .86rem; color: var(--texto); cursor: pointer; }
+.estado-robot span { margin-left: auto; color: var(--gris); font-size: 1.1rem; }
+.estado-robot.con-novedades { background: #fff7e0; border-color: #f0d78a; }
