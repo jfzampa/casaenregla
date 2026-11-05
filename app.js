@@ -441,6 +441,7 @@ async function abrirFicha(empleado) {
   el('resumenFicha').innerHTML = '<p class="ayuda">Cargando…</p>';
   el('listaLiqFicha').innerHTML = '';
   window.dibujarVinculo?.(e);
+  window.cargarAcuerdosFicha?.(e);
   el('mesNovedades').value = mesActual();
   el('formNovedad').hidden = true;
   cargarNovedades();

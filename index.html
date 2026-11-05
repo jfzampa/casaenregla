@@ -175,6 +175,39 @@
 
       <section class="tarjeta">
         <div class="titulo-con-select">
+          <h3>Acuerdos y comunicaciones</h3>
+          <button type="button" id="btnNuevoAcuerdo" class="boton boton-chico">+ Nuevo</button>
+        </div>
+        <p class="ayuda arriba" id="ayudaAcuerdos"></p>
+        <form id="formAcuerdo" class="caja-nueva" novalidate hidden>
+          <label>Tipo
+            <select name="tipo">
+              <option value="medio_pago">Medio de pago del sueldo</option>
+              <option value="descuento_aporte">Descuento del aporte de obra social</option>
+              <option value="vacaciones">Vacaciones</option>
+              <option value="horario">Horario de trabajo</option>
+              <option value="preaviso">Comunicación de preaviso</option>
+              <option value="comunicacion">Comunicación (sin firma, queda como leída)</option>
+              <option value="otro">Otro acuerdo</option>
+            </select>
+          </label>
+          <label>Título <input name="titulo" autocomplete="off"></label>
+          <label>Texto (completá lo que está entre corchetes)
+            <textarea name="texto" rows="9"></textarea>
+          </label>
+          <label class="opcion"><input type="checkbox" name="requiere_firma" checked> Requiere firma del empleado</label>
+          <p class="ayuda">Una vez enviado, el texto no se puede modificar. Si hay que cambiarlo, se envía uno nuevo.</p>
+          <div class="acciones">
+            <button type="submit" class="boton boton-principal">Enviar</button>
+            <button type="button" id="btnCancelarAcuerdo" class="boton boton-secundario borde">Cancelar</button>
+          </div>
+          <p class="estado" role="status"></p>
+        </form>
+        <div id="listaAcuerdos"></div>
+      </section>
+
+      <section class="tarjeta">
+        <div class="titulo-con-select">
           <h3>Resumen</h3>
           <select id="selAnioFicha" aria-label="Año"></select>
         </div>
@@ -587,6 +620,11 @@
         <button type="button" id="btnPresente" class="boton boton-principal">📍 Marcar presente</button>
         <p class="estado" id="estadoPresente" role="status"></p>
         <p class="ayuda">Al marcar se guarda la hora y tu ubicación de ese momento, solo para registrar que estás en tu trabajo. No se sigue tu ubicación.</p>
+      </section>
+
+      <section class="tarjeta" id="cajaAcuerdosTrabajo" hidden>
+        <h3 id="tituloAcuerdosTrabajo">Acuerdos y comunicaciones</h3>
+        <div id="listaAcuerdosTrabajo"></div>
       </section>
 
       <section class="tarjeta">

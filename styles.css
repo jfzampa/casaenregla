@@ -267,6 +267,20 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .botones-respuesta button { border: 1px solid var(--borde); background: #fff; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: .82rem; cursor: pointer; }
 .botones-respuesta button.si { border-color: var(--verde); color: var(--verde-oscuro); }
 
+/* ----- Acuerdos con firma electrónica ----- */
+.acuerdo { border: 1px solid #eef0f2; border-radius: 10px; padding: 0 12px; margin-bottom: 8px; }
+.acuerdo.pendiente-firma { border-color: #f0d78a; background: #fffcf2; }
+.acuerdo summary { cursor: pointer; padding: 10px 0; list-style: none; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.acuerdo summary::-webkit-details-marker { display: none; }
+.acuerdo summary small { display: block; color: var(--gris); font-size: .75rem; }
+.acuerdo .texto-acuerdo { white-space: pre-wrap; font-size: .9rem; background: #f8faf9; border-radius: 8px; padding: 10px 12px; margin: 0 0 10px; }
+.acuerdo .constancia { font-size: .78rem; color: var(--gris); border-top: 1px dashed var(--borde); padding: 8px 0 10px; word-break: break-all; }
+.acuerdo .firma label { font-size: .88rem; }
+.chip-acuerdo { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; background: #fff2cc; color: #8a6400; }
+.chip-acuerdo.aceptado { background: #dff3e8; color: var(--verde-oscuro); }
+.chip-acuerdo.rechazado { background: #fbe1de; color: var(--error); }
+.chip-acuerdo.leido { background: #e2ecf8; color: #24508a; }
+
 /* ----- Liquidación ----- */
 .otro { border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
 .otro .fila { align-items: flex-end; }

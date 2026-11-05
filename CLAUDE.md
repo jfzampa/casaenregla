@@ -170,7 +170,12 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   Si solo es empleado, se ocultan Empleados y Mis datos. Lo cargado por el empleado entra en la liquidación solo si el empleador lo confirma.
   ⚠ Para PROBAR con cuentas de empleados: desactivar "Confirm email" en Supabase (el envío de mails gratis solo llega al dueño);
   volver a activarlo en la fase final junto con el SMTP propio.
-- Portal del empleado parte 2 (pendiente): acuerdos y comunicaciones con firma electrónica.
+- Portal del empleado parte 2 ✔ (`supabase/18_acuerdos.sql`): acuerdos y comunicaciones con firma electrónica (Ley 25.506).
+  El empleador redacta desde la ficha con modelos (medio de pago, descuento de aporte, vacaciones, horario, preaviso, comunicación, otro)
+  que se completan con los datos de la ficha y de Mis datos; una vez enviado el texto no se puede editar (sin permiso de update;
+  se puede anular solo si nadie lo leyó). El empleado firma con "Leí el texto completo" + DNI (`responder_acuerdo` valida el DNI) o
+  rechaza con motivo; las comunicaciones quedan "leídas" al abrirlas. Constancia: fecha y hora de envío/lectura/firma, IP y dispositivo
+  (de los headers del pedido) y huella SHA-256 del título + texto (columna generada `huella`).
 - No incluido en la liquidación final (a pedido se agrega): multas por falta de registración (art. 50), SAC s/ vacaciones no gozadas.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae

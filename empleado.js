@@ -70,7 +70,7 @@
     el('mesTrabajo').value = el('mesTrabajo').value || mesActual();
     el('formNovEmpleado').elements.fecha.value = hoyIso();
     actualizarFormNovEmpleado();
-    await Promise.all([cargarNovTrabajo(), cargarRecibos()]);
+    await Promise.all([cargarNovTrabajo(), cargarRecibos(), cargarAcuerdosTrabajo()]);
   };
   el('selEmpleo').addEventListener('change', (e) => {
     empleoActual = misEmpleos.find((x) => x.empleado_id === e.target.value);
@@ -206,6 +206,201 @@
         ${l.pago_fecha ? `<p class="ayuda">Pagado el ${fechaCorta(l.pago_fecha)}${l.pago_medio ? ` por ${l.pago_medio}` : ''}.</p>` : ''}
       </details>`).join('') : '<p class="ayuda">Todavía no hay liquidaciones.</p>';
   }
+
+  // =====================================================================
+  // ACUERDOS Y COMUNICACIONES (firma electrónica)
+  // =====================================================================
+  const ESTADO_AC = { pendiente: 'Pendiente', aceptado: '✓ Firmado', rechazado: '✗ No aceptado', leido: 'Leído' };
+  const fechaHora = (ts) => (ts ? new Date(ts).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+
+  function constancia(a, nombre) {
+    const lineas = [`Enviado el ${fechaHora(a.creado)}.`];
+    if (a.leido_en) lineas.push(`Leído el ${fechaHora(a.leido_en)}.`);
+    if (a.estado === 'aceptado') lineas.push(`Firmado electrónicamente por ${nombre} el ${fechaHora(a.respondido_en)}, con su cuenta y confirmación de DNI.`);
+    if (a.estado === 'rechazado') lineas.push(`No aceptado el ${fechaHora(a.respondido_en)}${a.observacion ? `. Motivo: "${a.observacion}"` : ''}.`);
+    if (a.firma_ip) lineas.push(`IP: ${a.firma_ip}.`);
+    if (a.firma_dispositivo) lineas.push(`Dispositivo: ${a.firma_dispositivo}.`);
+    lineas.push(`Huella del texto (SHA-256): ${a.huella}`);
+    return lineas.map(escapar).join('<br>');
+  }
+
+  function plantilla(tipo, e, p) {
+    const nombre = `${e.nombre} ${e.apellido}`;
+    const dni = e.dni ? `DNI ${e.dni}` : 'DNI [completar]';
+    const empleador = p && p.apellido ? `${p.nombre} ${p.apellido}${p.cuil ? ` (CUIL/CUIT ${formatearCuil(p.cuil)})` : ''}` : '[nombre del empleador]';
+    const domicilio = p ? (p.trabajo_mismo_domicilio !== false
+      ? [p.calle, p.numero, p.piso_depto, p.localidad, p.provincia].filter(Boolean).join(' ')
+      : [p.trabajo_calle, p.trabajo_numero, p.trabajo_piso_depto, p.trabajo_localidad, p.trabajo_provincia].filter(Boolean).join(' ')) : '';
+    const anio = new Date().getMonth() >= 9 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+    const vac = Liquidacion.diasVacaciones(e.fecha_ingreso, String(anio));
+    const NDIAS = { lun: 'lunes', mar: 'martes', mie: 'miércoles', jue: 'jueves', vie: 'viernes', sab: 'sábados', dom: 'domingos' };
+    const t = {
+      medio_pago: ['Medio de pago del sueldo',
+        `Entre ${empleador} (empleador/a) y ${nombre}, ${dni} (trabajador/a), se acuerda que el sueldo y demás pagos se abonarán ` +
+        (e.pago_medio_acordado === 'efectivo' ? 'en efectivo, contra la firma del recibo por duplicado'
+          : e.pago_medio_acordado === 'transferencia' ? `por transferencia bancaria${e.pago_alias ? ` a la cuenta con alias/CBU ${e.pago_alias}` : ' a la cuenta que indique el/la trabajador/a [completar alias o CBU]'}`
+          : 'mediante [completar medio de pago]') +
+        `, dentro de los plazos del art. 19 de la Ley 26.844 (personal mensualizado: hasta el cuarto día hábil del mes siguiente). ` +
+        'La constancia bancaria será prueba suficiente del pago (art. 20 de la Ley 26.844).'],
+      descuento_aporte: ['Descuento del aporte de obra social',
+        `${nombre}, ${dni}, presta conformidad para que ${empleador} descuente mensualmente de su remuneración el aporte con destino a su obra social ` +
+        'que corresponde al trabajador según el régimen de casas particulares, por el monto fijo que establezca ARCA para su franja horaria. ' +
+        'El descuento figurará en cada liquidación y podrá dejarse sin efecto por acuerdo de ambas partes.'],
+      vacaciones: [`Vacaciones ${anio}`,
+        `Se comunica a ${nombre}, ${dni}, que gozará de sus vacaciones anuales correspondientes al año ${anio} desde el [dd/mm/aaaa] hasta el [dd/mm/aaaa], ` +
+        `${vac && vac.dias ? `${vac.dias} días corridos` : '[cantidad] días corridos'} según su antigüedad (art. 29 de la Ley 26.844). ` +
+        'La remuneración correspondiente se abonará antes del inicio de las vacaciones (art. 32).'],
+      horario: ['Horario de trabajo',
+        `Se acuerda que ${nombre}, ${dni}, prestará tareas los días ${(e.dias || []).map((d) => NDIAS[d]).join(', ') || '[completar días]'}` +
+        `${e.horas_semanales ? `, ${e.horas_semanales} horas semanales` : ''}, en el horario de [completar] a [completar]` +
+        `${domicilio ? `, en el domicilio ${domicilio}` : ''}. Las horas que excedan la jornada pactada se abonarán como horas extra (art. 25 de la Ley 26.844).`],
+      preaviso: ['Comunicación de preaviso',
+        `Por medio de la presente se comunica a ${nombre}, ${dni}, que la relación laboral finalizará el día [dd/mm/aaaa], ` +
+        'otorgándose el preaviso de ley (art. 43 de la Ley 26.844: 10 días si la antigüedad es menor a un año; 30 días si es mayor). ' +
+        'La liquidación final se abonará en los plazos legales. La firma de esta comunicación acredita su recepción.'],
+      comunicacion: ['', ''],
+      otro: ['', `Entre ${empleador} (empleador/a) y ${nombre}, ${dni} (trabajador/a), se acuerda: [completar].`],
+    }[tipo];
+    return { titulo: t[0], texto: t[1], requiere_firma: tipo !== 'comunicacion' };
+  }
+
+  // ---------- Lado del empleador (ficha) ----------
+  let perfilEmpleador = null;
+  window.cargarAcuerdosFicha = async (e) => {
+    el('formAcuerdo').hidden = true;
+    el('ayudaAcuerdos').textContent = e.usuario_id
+      ? 'Se los envías a su app: los firma con su cuenta y su DNI.'
+      : 'Todavía no usa la app: invitalo para que pueda leer y firmar desde su celular.';
+    const { data, error } = await db.from('acuerdos').select('*').eq('empleado_id', e.id).order('creado', { ascending: false });
+    if (fichaActual !== e) return;
+    if (error) { el('listaAcuerdos').innerHTML = '<p class="ayuda">No se pudieron cargar. ¿Corriste el SQL 18?</p>'; console.error(error); return; }
+    el('listaAcuerdos').innerHTML = data.length ? data.map((a) => `
+      <details class="acuerdo">
+        <summary><span>${escapar(a.titulo)}<small>${fechaCorta(a.creado.slice(0, 10))}${a.requiere_firma ? '' : ' · comunicación'}</small></span>
+          <span class="chip-acuerdo ${a.estado}">${ESTADO_AC[a.estado]}</span></summary>
+        <p class="texto-acuerdo">${escapar(a.texto)}</p>
+        <div class="constancia">${constancia(a, `${e.nombre} ${e.apellido}`)}</div>
+        <div class="acciones">
+          ${a.estado === 'pendiente' ? `<button type="button" class="boton boton-secundario borde" data-avisar-acuerdo="${a.id}">Avisar por WhatsApp</button>` : ''}
+          ${a.estado === 'pendiente' && !a.leido_en ? `<button type="button" class="boton boton-secundario borde" data-anular-acuerdo="${a.id}">Anular</button>` : ''}
+        </div>
+      </details>`).join('') : '<p class="ayuda">Todavía no hay acuerdos ni comunicaciones.</p>';
+    el('listaAcuerdos').dataset.titulos = JSON.stringify(Object.fromEntries(data.map((a) => [a.id, a.titulo])));
+  };
+
+  el('btnNuevoAcuerdo').addEventListener('click', async () => {
+    const f = el('formAcuerdo');
+    f.reset();
+    limpiarMarcas(f);
+    if (!perfilEmpleador) perfilEmpleador = (await db.from('empleadores').select('*').maybeSingle()).data;
+    aplicarPlantilla();
+    f.hidden = false;
+    f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  });
+  function aplicarPlantilla() {
+    const f = el('formAcuerdo');
+    const p = plantilla(f.elements.tipo.value, fichaActual, perfilEmpleador);
+    f.elements.titulo.value = p.titulo;
+    f.elements.texto.value = p.texto;
+    f.elements.requiere_firma.checked = p.requiere_firma;
+  }
+  el('formAcuerdo').elements.tipo.addEventListener('change', aplicarPlantilla);
+  el('btnCancelarAcuerdo').addEventListener('click', () => { el('formAcuerdo').hidden = true; });
+
+  el('formAcuerdo').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const f = ev.target, estado = f.querySelector('.estado');
+    const fila = {
+      empleado_id: fichaActual.id, tipo: f.elements.tipo.value,
+      titulo: f.elements.titulo.value.trim(), texto: f.elements.texto.value.trim(),
+      requiere_firma: f.elements.requiere_firma.checked,
+    };
+    if (!fila.titulo || !fila.texto) { mostrarEstado(estado, 'Completá el título y el texto.', true); return; }
+    if (/\[(completar|dd\/mm\/aaaa|cantidad|nombre del empleador)[^\]]*\]/i.test(fila.texto + fila.titulo) &&
+        !confirm('El texto todavía tiene partes entre corchetes sin completar. ¿Enviar igual?')) return;
+    if (!confirm('Una vez enviado no se puede modificar. ¿Enviar?')) return;
+    const { error } = await db.from('acuerdos').insert(fila);
+    if (error) { mostrarEstado(estado, 'No se pudo enviar. ¿Corriste el SQL 18?', true); console.error(error); return; }
+    f.hidden = true;
+    window.cargarAcuerdosFicha(fichaActual);
+  });
+
+  el('listaAcuerdos').addEventListener('click', async (ev) => {
+    const anular = ev.target.closest('[data-anular-acuerdo]');
+    if (anular) {
+      if (!confirm('¿Anular este acuerdo? Se borra porque todavía no lo leyó.')) return;
+      const { error } = await db.from('acuerdos').delete().eq('id', anular.dataset.anularAcuerdo);
+      if (error) { alert('No se pudo anular (quizás ya lo leyó).'); console.error(error); }
+      window.cargarAcuerdosFicha(fichaActual);
+      return;
+    }
+    const avisar = ev.target.closest('[data-avisar-acuerdo]');
+    if (avisar) {
+      const titulos = JSON.parse(el('listaAcuerdos').dataset.titulos || '{}');
+      const e = fichaActual;
+      const texto = `Hola ${e.nombre}! Te envié "${titulos[avisar.dataset.avisarAcuerdo] || 'un acuerdo'}" para que lo leas y lo firmes en CasaEnRegla, en "Mi trabajo": ${URL_APP}`;
+      const tel = (e.telefono || '').replace(/\D/g, '');
+      window.open(`https://wa.me/${tel.length === 10 ? '549' + tel : ''}?text=${encodeURIComponent(texto)}`, '_blank');
+    }
+  });
+
+  // ---------- Lado del empleado (Mi trabajo) ----------
+  let acuerdosTrabajo = [];
+  async function cargarAcuerdosTrabajo() {
+    const { data, error } = await db.rpc('mis_acuerdos', { p_empleado: empleoActual.empleado_id });
+    if (error) { el('cajaAcuerdosTrabajo').hidden = true; return; }
+    acuerdosTrabajo = data;
+    const pendientes = data.filter((a) => a.estado === 'pendiente').length;
+    el('cajaAcuerdosTrabajo').hidden = !data.length;
+    el('tituloAcuerdosTrabajo').textContent = `Acuerdos y comunicaciones${pendientes ? ` (${pendientes} pendiente${pendientes === 1 ? '' : 's'})` : ''}`;
+    const nombre = `${empleoActual.nombre} ${empleoActual.apellido}`;
+    el('listaAcuerdosTrabajo').innerHTML = data.map((a) => {
+      const firmar = a.estado === 'pendiente' && a.requiere_firma;
+      return `<details class="acuerdo${firmar ? ' pendiente-firma' : ''}" data-acuerdo="${a.id}"${firmar ? ' open' : ''}>
+        <summary><span>${escapar(a.titulo)}<small>${fechaCorta(a.creado.slice(0, 10))}${a.requiere_firma ? '' : ' · comunicación'}</small></span>
+          <span class="chip-acuerdo ${a.estado}">${a.estado === 'pendiente' ? (a.requiere_firma ? 'Para firmar' : 'Nuevo') : ESTADO_AC[a.estado]}</span></summary>
+        <p class="texto-acuerdo">${escapar(a.texto)}</p>
+        ${firmar ? `<form class="firma" data-firmar="${a.id}" novalidate>
+            <label class="opcion"><input type="checkbox" name="leido"> Leí el texto completo</label>
+            <label>Tu DNI, para firmar <input name="dni" inputmode="numeric" maxlength="8" autocomplete="off"></label>
+            <div class="acciones">
+              <button type="submit" class="boton boton-principal">Firmar y aceptar</button>
+              <button type="button" class="boton boton-secundario borde" data-rechazar="${a.id}">No acepto</button>
+            </div>
+            <p class="estado" role="status"></p>
+          </form>` : `<div class="constancia">${constancia(a, nombre)}</div>`}
+      </details>`;
+    }).join('');
+    // las comunicaciones abiertas cuentan como leídas
+    data.filter((a) => !a.leido_en && a.estado === 'pendiente').forEach((a) => {
+      const d = el('listaAcuerdosTrabajo').querySelector(`[data-acuerdo="${a.id}"]`);
+      const marcar = () => db.rpc('leer_acuerdo', { p_id: a.id }).then(() => { if (!a.requiere_firma) cargarAcuerdosTrabajo(); });
+      if (d.open) marcar(); else d.addEventListener('toggle', () => { if (d.open) marcar(); }, { once: true });
+    });
+  }
+
+  el('listaAcuerdosTrabajo').addEventListener('submit', async (ev) => {
+    const f = ev.target.closest('[data-firmar]');
+    if (!f) return;
+    ev.preventDefault();
+    const estado = f.querySelector('.estado');
+    if (!f.elements.leido.checked) { mostrarEstado(estado, 'Tildá "Leí el texto completo".', true); return; }
+    if (!/^\d{7,8}$/.test(f.elements.dni.value.trim())) { mostrarEstado(estado, 'Escribí tu DNI (7 u 8 números).', true); return; }
+    mostrarEstado(estado, 'Firmando…');
+    const { error } = await db.rpc('responder_acuerdo', { p_id: f.dataset.firmar, p_acepta: true, p_dni: f.elements.dni.value.trim() });
+    if (error) { mostrarEstado(estado, error.message || 'No se pudo firmar.', true); return; }
+    cargarAcuerdosTrabajo();
+  });
+
+  el('listaAcuerdosTrabajo').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-rechazar]');
+    if (!b) return;
+    const motivo = prompt('¿Por qué no lo aceptás? (tu empleador lo va a ver)');
+    if (motivo === null) return;
+    const { error } = await db.rpc('responder_acuerdo', { p_id: b.dataset.rechazar, p_acepta: false, p_observacion: motivo });
+    if (error) { alert(error.message || 'No se pudo guardar.'); return; }
+    cargarAcuerdosTrabajo();
+  });
 
   // =====================================================================
   // LADO DEL EMPLEADOR: invitar y ubicación del lugar de trabajo
