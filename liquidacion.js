@@ -122,6 +122,13 @@
     add('Horas extra al 100%', `${fmt(h100)} hs × $${fmt(valorHora)} × 2`, h100 * valorHora * 2, 'rem');
     add('Recargo feriado trabajado', `${fmt(hFer)} hs × $${fmt(valorHora)} (100% adicional; el día ya está pago)`, hFer * valorHora, 'rem');
 
+    // ---- Aguinaldo (SAC), solo si se pidió (junio / diciembre) ----
+    let sac = null;
+    if (novedades.sac && novedades.sac.incluir && Number(novedades.sac.mejor_remuneracion) > 0) {
+      sac = calcularSac({ periodo, fechaIngreso: empleado.fecha_ingreso, mejorRemuneracion: novedades.sac.mejor_remuneracion });
+      add(`Aguinaldo (SAC) ${sac.semestre === 1 ? '1er' : '2do'} semestre ${periodo.slice(0, 4)}`, sac.detalle, sac.importe, 'rem');
+    }
+
     // ---- Otros conceptos ----
     for (const o of novedades.otros || []) {
       const imp = Number(o.importe) || 0;
@@ -169,10 +176,34 @@
       total_descuentos: totalDesc,
       neto,
       neto_letras: numeroALetras(neto),
+      sac,
+      sac_importe: sac ? sac.importe : 0,
       pago_arca: pagoArca,
       cargas_empleador: cargasEmpleador,
       costo_total: costoTotal,
     };
+  }
+
+  // ===== Aguinaldo (SAC) — art. 26 Ley 26.844 =====
+  // 50% de la mayor remuneración mensual (remunerativa) del semestre; proporcional si no trabajó todo el semestre.
+  const diasEntre = (a, b) => Math.round((Date.UTC(...b.split('-').map((n, i) => (i === 1 ? n - 1 : +n))) -
+    Date.UTC(...a.split('-').map((n, i) => (i === 1 ? n - 1 : +n)))) / 86400000) + 1;
+
+  function calcularSac({ periodo, fechaIngreso, mejorRemuneracion }) {
+    const [a, m] = periodo.split('-').map(Number);
+    const semestre = m <= 6 ? 1 : 2;
+    const inicio = semestre === 1 ? `${a}-01-01` : `${a}-07-01`;
+    const fin = semestre === 1 ? `${a}-06-30` : `${a}-12-31`;
+    const desde = fechaIngreso && fechaIngreso > inicio ? fechaIngreso : inicio;
+    const diasSemestre = diasEntre(inicio, fin);
+    const dias = desde > fin ? 0 : diasEntre(desde, fin);
+    const base = Number(mejorRemuneracion) || 0;
+    const completo = dias === diasSemestre;
+    const importe = r2(base / 2 * dias / diasSemestre);
+    const detalle = completo
+      ? `50% de la mayor remuneración del semestre ($${fmt(base)})`
+      : `$${fmt(base)} ÷ 2 × ${dias} días trabajados ÷ ${diasSemestre} días del semestre`;
+    return { semestre, inicio, fin, dias, diasSemestre, completo, importe, detalle };
   }
 
   // ===== Número a letras (pesos) — para el neto del recibo =====
@@ -406,7 +437,7 @@
   }
 
   const api = {
-    calcular, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
+    calcular, calcularSac, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
     analizarReciboArca, analizarVep, claveConcepto, analizarAportesArca,
     analizarTextoEscala, controlarEscala,
   };

@@ -290,6 +290,19 @@
           <p class="ayuda">Ej.: reintegro de transporte (no remunerativo), premio (remunerativo). Tildá "Todos los meses" para que se repita solo.</p>
         </section>
 
+        <section class="tarjeta" id="cajaSac" hidden>
+          <h3>Aguinaldo (SAC)</h3>
+          <label class="opcion"><input type="checkbox" name="incluir_sac"> Incluir el aguinaldo del semestre</label>
+          <div id="bloqueSac" hidden>
+            <label>Mayor remuneración mensual del semestre
+              <input name="mejor_remuneracion" type="number" step="0.01" min="0" inputmode="decimal">
+            </label>
+            <p class="ayuda" id="origenSac"></p>
+          </div>
+          <p class="ayuda">Ley 26.844, art. 26: 50% de la mayor remuneración mensual del semestre (básico, antigüedad, zona y extras; sin lo no remunerativo).
+            Proporcional si no trabajó el semestre completo. Se paga en junio y diciembre.</p>
+        </section>
+
         <section class="tarjeta">
           <h3>Liquidación</h3>
           <div id="resultadoLiq"><p class="ayuda">Cargando…</p></div>

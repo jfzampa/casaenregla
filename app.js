@@ -404,7 +404,7 @@ function dibujarFicha(anio) {
   const delAnio = liqsFicha.filter((l) => Number(l.periodo.slice(0, 4)) === Number(anio));
   const suma = (f) => delAnio.reduce((acc, l) => acc + f(l), 0);
   const pagadas = delAnio.filter((l) => l.estado === 'pagada').length;
-  const mejor = delAnio.reduce((m, l) => Math.max(m, Number(l.total_remunerativo)), 0);
+  const mejor = delAnio.reduce((m, l) => Math.max(m, Number(l.total_remunerativo) - Number((l.detalle && l.detalle.sac_importe) || 0)), 0);
   const conDesvio = delAnio.filter(tieneDesvio).length;
 
   // Meses del año (hasta el actual) sin liquidación, desde el ingreso
@@ -494,20 +494,34 @@ function leerNovedades() {
   return {
     faltas_dias: n('faltas_dias'), horas_extra_50: n('horas_extra_50'),
     horas_extra_100: n('horas_extra_100'), horas_feriado: n('horas_feriado'), otros: leerOtros(),
+    sac: esMesSac() && formLiq.elements.incluir_sac.checked
+      ? { incluir: true, mejor_remuneracion: n('mejor_remuneracion'), manual: liq.sacManual }
+      : null,
   };
 }
 
 // ---- Datos que necesita el cálculo para un período ----
 async function datosDelPeriodo(empleado, periodo) {
   const fecha = `${periodo}-01`;
-  const [escala, params, aportes, perfil, existente] = await Promise.all([
+  const [a, m] = periodo.split('-').map(Number);
+  const inicioSem = `${a}-${m <= 6 ? '01' : '07'}-01`;
+  const [escala, params, aportes, perfil, existente, semestre] = await Promise.all([
     escalaVigente(empleado.categoria, empleado.modalidad, fecha),
     db.from('parametros').select('*').lte('vigencia_desde', fecha).order('vigencia_desde', { ascending: false }),
     db.from('aportes_arca').select('*').lte('periodo_desde', fecha).order('periodo_desde', { ascending: false }),
     db.from('empleadores').select('provincia, localidad, trabajo_mismo_domicilio, trabajo_provincia, trabajo_localidad').maybeSingle(),
     db.from('liquidaciones').select('*').eq('empleado_id', empleado.id).eq('periodo', fecha).maybeSingle(),
+    db.from('liquidaciones').select('periodo, total_remunerativo, detalle').eq('empleado_id', empleado.id)
+      .gte('periodo', inicioSem).lt('periodo', fecha),
   ]);
-  for (const r of [params, aportes, perfil, existente]) if (r.error) throw r.error;
+  for (const r of [params, aportes, perfil, existente, semestre]) if (r.error) throw r.error;
+
+  // Mayor remuneración guardada en los meses anteriores del semestre (sin contar aguinaldos)
+  let mejorGuardada = { importe: 0, periodo: null, meses: semestre.data.length };
+  for (const l of semestre.data) {
+    const rem = Number(l.total_remunerativo) - Number((l.detalle && l.detalle.sac_importe) || 0);
+    if (rem > mejorGuardada.importe) mejorGuardada = { ...mejorGuardada, importe: rem, periodo: l.periodo.slice(0, 7) };
+  }
 
   const param = {};
   for (const p of params.data) if (!(p.clave in param)) param[p.clave] = Number(p.valor);
@@ -522,7 +536,7 @@ async function datosDelPeriodo(empleado, periodo) {
     ? Liquidacion.esZonaDesfavorable(pf.provincia, pf.localidad)
     : Liquidacion.esZonaDesfavorable(pf.trabajo_provincia, pf.trabajo_localidad)) : false;
 
-  return { escala, param, aportes: filasAportes, zona, sinPerfil: !pf, existente: existente.data };
+  return { escala, param, aportes: filasAportes, zona, sinPerfil: !pf, existente: existente.data, mejorGuardada };
 }
 
 function abrirLiquidacion(empleado, periodo = mesActual()) {
@@ -542,7 +556,10 @@ async function cargarPeriodo() {
   liq.fila = null;
   formCierre.hidden = true;
   listaOtros.innerHTML = '';
-  ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado'].forEach((c) => { formLiq.elements[c].value = ''; });
+  ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado', 'mejor_remuneracion'].forEach((c) => { formLiq.elements[c].value = ''; });
+  formLiq.elements.incluir_sac.checked = false;
+  liq.sacManual = false;
+  el('cajaSac').hidden = !esMesSac();
   resultadoLiq.innerHTML = '<p class="ayuda">Cargando…</p>';
 
   try {
@@ -561,6 +578,11 @@ async function cargarPeriodo() {
     const n = ex.novedades || {};
     ['faltas_dias', 'horas_extra_50', 'horas_extra_100', 'horas_feriado'].forEach((c) => { formLiq.elements[c].value = n[c] || ''; });
     (n.otros || []).forEach(agregarOtro);
+    if (n.sac && n.sac.incluir) {
+      formLiq.elements.incluir_sac.checked = true;
+      formLiq.elements.mejor_remuneracion.value = n.sac.mejor_remuneracion || '';
+      liq.sacManual = !!n.sac.manual;
+    }
     mostrarEstado(estado, `Ya hay una liquidación guardada de ${nombrePeriodo(periodo)} (${new Date(ex.actualizado).toLocaleDateString('es-AR')}). Si cambiás algo, guardala de nuevo.`);
   } else {
     (liq.empleado.conceptos_fijos || []).forEach((o) => agregarOtro({ ...o, fijo: true }));
@@ -569,7 +591,12 @@ async function cargarPeriodo() {
   recalcular();
 }
 formLiq.elements.periodo.addEventListener('change', cargarPeriodo);
-formLiq.addEventListener('input', (ev) => { if (ev.target.name !== 'periodo') recalcular(); });
+formLiq.addEventListener('input', (ev) => {
+  if (ev.target.name === 'mejor_remuneracion') liq.sacManual = true;
+  if (ev.target.name === 'incluir_sac' && ev.target.checked) liq.sacManual = false;
+  if (ev.target.name !== 'periodo') recalcular();
+});
+const esMesSac = () => ['06', '12'].includes((formLiq.elements.periodo.value || '').slice(5, 7));
 
 function recalcular() {
   const d = liq.datos;
@@ -579,6 +606,22 @@ function recalcular() {
     liq.resultado = null;
     resultadoLiq.innerHTML = `<p class="estado mal">No hay escala salarial cargada para ${nombrePeriodo(periodo)}.</p>`;
     return;
+  }
+  // Aguinaldo: si no se escribió a mano, proponer la mayor entre los meses guardados del semestre y este mes
+  const conSac = esMesSac() && formLiq.elements.incluir_sac.checked;
+  el('bloqueSac').hidden = !conSac;
+  if (conSac) {
+    const sinSac = { ...leerNovedades(), sac: null };
+    const remMes = Liquidacion.calcular({ empleado: liq.empleado, periodo, escala: d.escala, param: d.param, zona: d.zona, aportes: d.aportes, novedades: sinSac }).total_remunerativo;
+    const g = d.mejorGuardada;
+    if (!liq.sacManual) {
+      formLiq.elements.mejor_remuneracion.value = Math.max(g.importe, remMes).toFixed(2);
+    }
+    const mesesSem = Number(periodo.slice(5, 7)) <= 6 ? Number(periodo.slice(5, 7)) - 1 : Number(periodo.slice(5, 7)) - 7;
+    el('origenSac').textContent = liq.sacManual
+      ? 'Valor escrito a mano.'
+      : (g.importe > remMes ? `Tomada de ${nombrePeriodo(g.periodo)} (${pesos(g.importe)}).` : `Es la de este mes (${pesos(remMes)}).`) +
+        (g.meses < mesesSem ? ` Ojo: solo hay ${g.meses} de ${mesesSem} meses anteriores del semestre guardados en la app; si algún mes fue mayor, escribilo a mano.` : '');
   }
   const r = Liquidacion.calcular({
     empleado: liq.empleado, periodo, escala: d.escala, param: d.param,
@@ -633,7 +676,7 @@ formLiq.addEventListener('submit', async (ev) => {
     novedades,
     detalle: { renglones: r.renglones, modalidad_liquidacion: r.modalidad_liquidacion, anios_antiguedad: r.anios_antiguedad,
       horas_liquidadas: r.horas_liquidadas, valor_hora: r.valor_hora, arca: r.arca, neto_letras: r.neto_letras, escala: liq.datos.escala, zona: liq.datos.zona,
-      cargas_empleador: r.cargas_empleador, costo_total: r.costo_total },
+      cargas_empleador: r.cargas_empleador, costo_total: r.costo_total, sac_importe: r.sac_importe, sac: r.sac },
     total_remunerativo: r.total_remunerativo,
     total_no_remun: r.total_no_remun,
     total_descuentos: r.total_descuentos,

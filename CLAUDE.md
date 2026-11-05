@@ -41,6 +41,7 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - **Horas extra** (> 8 hs diarias o 48 semanales): 50% días comunes; 100% sábado después de las 13, domingo y feriado (art. 25 Ley 26.844, no lo cambió la Ley 27.802).
 - **Costo total del empleador** = asignaciones (rem + no rem) + aportes y contribuciones a su cargo = neto + VEP a ARCA
   (si se retiene el aporte de obra social al empleado, no se cuenta dos veces). Columna `costo_total` (SQL 11); `costo_real` = sueldo pagado + VEP.
+- **Aguinaldo (SAC)**: 50% de la mayor remuneración mensual devengada (remunerativa) del semestre; proporcional a los días trabajados. Junio y diciembre.
 - **Faltas injustificadas**: forma clásica: sueldo ÷ 30 × días de falta (por hora: no se pagan esas horas).
 - **Aportes**: por defecto NO se descuentan del recibo (los paga el empleador). Opción por empleado "descontar aporte de obra social",
   solo con acuerdo previo con el empleado. Montos fijos de ARCA por franja horaria (< 12, 12 a < 16, ≥ 16) y tipo (activo / menor de 18 / jubilado): van en una tabla que se actualiza todos los meses.
@@ -118,7 +119,10 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   y referencia el nº de VEP; comprobante VEP trae "Nro. VEP", "Periodo: aaaamm", "IMPORTE PAGADO", "Fecha de Pago: d/m/aaaa". Lectura en `liquidacion.js`.
 - Ficha del empleado (tocar un empleado en la lista): datos, antigüedad, resumen por año (costo total, neto, ARCA, liquidaciones
   pagadas, mayor remuneración = base SAC, desvíos, meses sin liquidar) e historial; tocar una liquidación abre ese mes. Base para el portal del empleado.
-- Pendiente: aguinaldo (SAC), vacaciones, avisos, liquidación final.
+- Aguinaldo (SAC) ✔: en la liquidación de junio/diciembre, opción "Incluir aguinaldo". 50% de la mayor remuneración remunerativa
+  del semestre (art. 26), proporcional por días desde el ingreso (`Liquidacion.calcularSac`). Propone la mayor entre los meses
+  guardados del semestre (sin contar aguinaldos, `detalle.sac_importe`) y el mes actual; se puede escribir a mano.
+- Pendiente: vacaciones, avisos, liquidación final.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae
   Supabase gratis solo manda a emails del equipo del proyecto y tiene pocos envíos por hora.
