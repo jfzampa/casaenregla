@@ -2,8 +2,13 @@
 -- Pegar en Supabase > SQL Editor.
 -- ⚠ ANTES de tocar "Run": reemplazá PONER_SECRETO por el mismo valor que cargaste en
 --   Edge Functions > Secrets > ROBOT_SECRETO. (No se sube a GitHub con el valor real.)
--- Requiere las extensiones pg_cron y pg_net activadas (Database > Extensions).
 
+-- 1) Activar las extensiones de tareas programadas (pg_cron) y de llamadas web (pg_net)
+create extension if not exists pg_cron with schema pg_catalog;
+grant usage on schema cron to postgres;
+create extension if not exists pg_net with schema extensions;
+
+-- 2) Programar el robot (si ya existía con este nombre, se reemplaza)
 select cron.schedule(
   'robot-escalas-diario',
   '0 11 * * *',
@@ -17,4 +22,5 @@ select cron.schedule(
 );
 
 -- Para ver si corrió:   select * from public.robot_ejecuciones order by ejecutado desc limit 5;
+-- Ver tareas programadas: select jobname, schedule, active from cron.job;
 -- Para desprogramarlo:  select cron.unschedule('robot-escalas-diario');

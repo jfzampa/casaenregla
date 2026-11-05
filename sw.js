@@ -1,10 +1,11 @@
 // Service worker: permite instalar la app y abrirla sin conexión.
 // Primero intenta internet (para ver siempre la última versión); si no hay, usa lo guardado.
-const CACHE = 'casaenregla-v22';
+const CACHE = 'casaenregla-v23';
 const ARCHIVOS = ['./', 'index.html', 'styles.css', 'config.js', 'liquidacion.js', 'app.js', 'admin.js', 'empleado.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARCHIVOS)));
+  // cache: 'reload' = bajar siempre del servidor (no de la memoria del navegador)
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARCHIVOS.map((u) => new Request(u, { cache: 'reload' })))));
   self.skipWaiting();
 });
 
@@ -17,10 +18,12 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  const propio = new URL(e.request.url).origin === location.origin;
   e.respondWith(
-    fetch(e.request)
+    // archivos de la app: preguntar siempre al servidor si cambiaron (no usar la memoria del navegador)
+    fetch(propio ? new Request(e.request, { cache: 'no-cache' }) : e.request)
       .then((resp) => {
-        if (resp.ok && new URL(e.request.url).origin === location.origin) {
+        if (resp.ok && propio) {
           const copia = resp.clone();
           caches.open(CACHE).then((c) => c.put(e.request, copia));
         }
