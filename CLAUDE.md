@@ -103,6 +103,12 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 2. Datos laborales con listas para elegir.
 3. Botón "Guardar" en Supabase.
 
+## Orden de trabajo acordado (2026-11-05)
+- SQL 01 a 16 ya ejecutados en Supabase (el dueño confirma; los nuevos SQL van numerados desde el 17).
+- Decisión: dominio, mails propios (SMTP + plantillas en español), política de privacidad, ícono PNG, INPI/Instagram
+  quedan para **el final**, con el prototipo terminado.
+- Próximos bloques: portal/app del empleado · robot de escalas (paso B) + avisos por notificación/mail · cobro con Mercado Pago.
+
 ## Estado actual (actualizado 2026-11-04)
 - Hecho: pantalla "Nuevo empleado" (HTML/JS simple, sin build) con escaneo DNI (ZXing, PDF417), cálculo de CUIL,
   validaciones, login email+contraseña y guardado en Supabase (proyecto propio de CasaEnRegla, tabla `empleados` con RLS).
