@@ -212,6 +212,10 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .neto small { opacity: .85; }
 .info-liq { font-size: .85rem; color: var(--gris); margin: 0 0 8px; }
 .caja-arca { background: #f4f6f5; border-radius: 10px; padding: 10px 12px; margin-top: 12px; font-size: .88rem; }
+.caja-costo { border: 2px solid var(--verde); border-radius: 12px; padding: 10px 14px 12px; margin-top: 12px; }
+.caja-costo h4 { margin: 0 0 4px; color: var(--azul); font-size: .95rem; }
+.caja-costo tr.subtotal td { font-size: 1.1rem; color: var(--azul); }
+.caja-costo > small { display: block; color: var(--gris); font-size: .8rem; margin-top: 4px; }
 .avisos { background: #fff7e0; border: 1px solid #f0d78a; color: #6b5310; border-radius: 10px; padding: 8px 12px 8px 28px; margin: 0 0 10px; font-size: .88rem; }
 
 /* ----- Cierre del mes ----- */

@@ -39,6 +39,8 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - **Por hora** (< 24 hs): horas realmente trabajadas en el mes (días de trabajo del calendario × horas/día − faltas + extras).
 - **Antigüedad**: 1% por año sobre el mensual, contando desde 01/09/2020. **Zona desfavorable**: 31% (provincias patagónicas + Patagones).
 - **Horas extra** (> 8 hs diarias o 48 semanales): 50% días comunes; 100% sábado después de las 13, domingo y feriado (art. 25 Ley 26.844, no lo cambió la Ley 27.802).
+- **Costo total del empleador** = asignaciones (rem + no rem) + aportes y contribuciones a su cargo = neto + VEP a ARCA
+  (si se retiene el aporte de obra social al empleado, no se cuenta dos veces). Columna `costo_total` (SQL 11); `costo_real` = sueldo pagado + VEP.
 - **Faltas injustificadas**: forma clásica: sueldo ÷ 30 × días de falta (por hora: no se pagan esas horas).
 - **Aportes**: por defecto NO se descuentan del recibo (los paga el empleador). Opción por empleado "descontar aporte de obra social",
   solo con acuerdo previo con el empleado. Montos fijos de ARCA por franja horaria (< 12, 12 a < 16, ≥ 16) y tipo (activo / menor de 18 / jubilado): van en una tabla que se actualiza todos los meses.

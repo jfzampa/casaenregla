@@ -135,12 +135,14 @@
     const franja = franjaHoras(horasSem);
     const fila = aportes.find((a) => a.tipo === tipo && a.franja === franja);
     let pagoArca = 0;
+    let aporteRetenido = 0;
     let arca = null;
     if (fila) {
       arca = { tipo, franja, aporte_os: Number(fila.aporte_os), contribucion_sipa: Number(fila.contribucion_sipa), cuota_art: Number(fila.cuota_art) };
       pagoArca = r2(arca.aporte_os + arca.contribucion_sipa + arca.cuota_art);
       if (empleado.descuenta_aporte && arca.aporte_os) {
         add('Aporte obra social', 'Descuento acordado con el empleado (monto fijo ARCA)', -arca.aporte_os, 'desc');
+        aporteRetenido = arca.aporte_os;
       }
     } else {
       avisos.push('No hay montos de aportes de ARCA cargados para este período.');
@@ -151,6 +153,10 @@
     const totalNoRem = suma('norem');
     const totalDesc = -suma('desc');
     const neto = r2(totalRem + totalNoRem - totalDesc);
+    // Costo total del empleador = lo que sale de su bolsillo: neto al empleado + VEP a ARCA
+    // (= asignaciones + aportes y contribuciones a su cargo; el aporte retenido al empleado no se cuenta dos veces)
+    const cargasEmpleador = r2(pagoArca - aporteRetenido);
+    const costoTotal = r2(totalRem + totalNoRem + cargasEmpleador);
 
     return {
       modalidad_liquidacion: mensualizado ? 'mensual' : 'por_hora',
@@ -164,6 +170,8 @@
       neto,
       neto_letras: numeroALetras(neto),
       pago_arca: pagoArca,
+      cargas_empleador: cargasEmpleador,
+      costo_total: costoTotal,
     };
   }
 

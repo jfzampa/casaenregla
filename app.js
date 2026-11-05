@@ -508,9 +508,20 @@ function recalcular() {
       ${r.total_descuentos ? `${grupo('desc')}<tr class="subtotal"><td>Total descuentos</td><td class="monto negativo">-${pesos(r.total_descuentos)}</td></tr>` : ''}
     </table>
     <div class="neto"><small>Neto a cobrar</small><b>${pesos(r.neto)}</b><small>${escapar(r.neto_letras)}</small></div>
-    ${r.arca ? `<div class="caja-arca"><b>A pagar en ARCA: ${pesos(r.pago_arca)}</b><br>
+    ${r.arca ? `<div class="caja-arca"><b>A pagar en ARCA (VEP): ${pesos(r.pago_arca)}</b><br>
       Aporte obra social ${pesos(r.arca.aporte_os)} · Contribución SIPA ${pesos(r.arca.contribucion_sipa)} · ART ${pesos(r.arca.cuota_art)}
-      ${liq.empleado.descuenta_aporte ? '<br><small>El aporte de obra social se le descuenta al empleado (acordado).</small>' : ''}</div>` : ''}`;
+      ${liq.empleado.descuenta_aporte ? '<br><small>El aporte de obra social se le descuenta al empleado (acordado).</small>' : ''}</div>` : ''}
+    <div class="caja-costo">
+      <h4>Costo total del mes para el empleador</h4>
+      <table class="tabla-liq">
+        <tr><td>Asignaciones remunerativas</td><td class="monto">${pesos(r.total_remunerativo)}</td></tr>
+        ${r.total_no_remun ? `<tr><td>Asignaciones no remunerativas</td><td class="monto">${pesos(r.total_no_remun)}</td></tr>` : ''}
+        <tr><td>Aportes y contribuciones a tu cargo<small>${liq.empleado.descuenta_aporte ? 'SIPA + ART (la obra social la aporta el empleado)' : 'Obra social + SIPA + ART'}</small></td>
+          <td class="monto">${pesos(r.cargas_empleador)}</td></tr>
+        <tr class="subtotal"><td>Costo total</td><td class="monto">${pesos(r.costo_total)}</td></tr>
+      </table>
+      <small>Es lo que sale de tu bolsillo: neto al empleado (${pesos(r.neto)}) + VEP a ARCA (${pesos(r.pago_arca)}).</small>
+    </div>`;
 }
 
 formLiq.addEventListener('submit', async (ev) => {
@@ -526,7 +537,8 @@ formLiq.addEventListener('submit', async (ev) => {
     periodo: `${periodo}-01`,
     novedades,
     detalle: { renglones: r.renglones, modalidad_liquidacion: r.modalidad_liquidacion, anios_antiguedad: r.anios_antiguedad,
-      horas_liquidadas: r.horas_liquidadas, valor_hora: r.valor_hora, arca: r.arca, neto_letras: r.neto_letras, escala: liq.datos.escala, zona: liq.datos.zona },
+      horas_liquidadas: r.horas_liquidadas, valor_hora: r.valor_hora, arca: r.arca, neto_letras: r.neto_letras, escala: liq.datos.escala, zona: liq.datos.zona,
+      cargas_empleador: r.cargas_empleador, costo_total: r.costo_total },
     total_remunerativo: r.total_remunerativo,
     total_no_remun: r.total_no_remun,
     total_descuentos: r.total_descuentos,
@@ -672,6 +684,13 @@ function actualizarCierre() {
   mostrarDesvio(formCierre.querySelector('.desvio-vep'), formCierre.elements.vep_importe.value, liq.fila.pago_arca, 'lo calculado para ARCA');
   mostrarDesvio(formCierre.querySelector('.desvio-recibo'), formCierre.elements.recibo_arca_neto.value, liq.fila.neto);
   mostrarDesvio(formCierre.querySelector('.desvio-pago'), formCierre.elements.pago_importe.value, liq.fila.neto);
+  // Costo real del mes (sueldo pagado + VEP) contra el costo total liquidado
+  const sueldo = formCierre.elements.pago_importe.value, vep = formCierre.elements.vep_importe.value;
+  const nodoCosto = formCierre.querySelector('.costo-real');
+  if (sueldo !== '' && vep !== '') {
+    mostrarDesvio(nodoCosto, Number(sueldo) + Number(vep), Number(liq.fila.neto) + Number(liq.fila.pago_arca), 'el costo total liquidado');
+    nodoCosto.textContent = `Costo real del mes: ${pesos(Number(sueldo) + Number(vep))} (sueldo + VEP). ` + nodoCosto.textContent;
+  } else nodoCosto.textContent = '';
   const medio = formCierre.elements.pago_medio.value;
   formCierre.querySelectorAll('.solo-transferencia').forEach((n) => { n.hidden = medio !== 'transferencia'; });
   formCierre.querySelectorAll('.solo-efectivo').forEach((n) => { n.hidden = medio !== 'efectivo'; });
