@@ -1642,8 +1642,14 @@ el('btnNotifActivar').addEventListener('click', async () => {
 });
 
 el('btnNotifPrueba').addEventListener('click', async () => {
+  if (!(await suscripcionActual())) { toast('Primero activá las notificaciones en este dispositivo.', true); return; }
   const { data, error } = await db.functions.invoke('enviar-avisos', { body: { prueba: true } });
-  if (error || !data || !data.enviadas) { toast('No se pudo enviar la prueba. ¿Está instalada la función "enviar-avisos"?', true); console.error(error, data); return; }
+  if (error) { toast('No se pudo conectar con el servicio de notificaciones. Probá de nuevo en un rato.', true); console.error(error); return; }
+  if (!data || !data.enviadas) {
+    toast(data && data.detalle && data.detalle.length ? `No se pudo entregar: ${data.detalle[0]}` : 'Este dispositivo no está registrado: tocá "Desactivar" y volvé a activar.', true);
+    console.error(data);
+    return;
+  }
   toast('✓ Enviada: te tiene que llegar en unos segundos.');
 });
 

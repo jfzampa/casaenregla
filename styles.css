@@ -426,3 +426,6 @@ textarea { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; fon
 .barra-inferior { justify-content: center; }
 .barra-inferior button { max-width: 112px; }
 .fecha-hoy { text-transform: none; }
+
+/* Lo marcado como oculto (atributo hidden) se oculta siempre, aunque otra regla le dé display */
+[hidden] { display: none !important; }
