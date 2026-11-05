@@ -145,4 +145,39 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .item span { font-size: .85rem; color: var(--gris); }
 .vacio { text-align: center; color: var(--gris); padding: 24px 8px; }
 
+/* ----- Pestañas de la app ----- */
+.pestanias { display: flex; gap: 4px; background: #e3e8e6; padding: 4px; border-radius: 12px; margin-bottom: 14px; }
+.pestanias button {
+  flex: 1; padding: 10px 4px; border: none; border-radius: 9px; background: none;
+  font: inherit; font-size: .9rem; color: var(--gris); cursor: pointer;
+}
+.pestanias button.activa { background: #fff; color: var(--azul); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+/* ----- Login ----- */
+.links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.links .link { padding: 4px 0; font-size: .95rem; }
+.chico { font-size: .85rem; color: var(--gris); align-items: flex-start; }
+.chico input { margin-top: 3px; }
+.ayuda.arriba { margin: 0 0 12px; }
+
+/* ----- Avisos y botones extra ----- */
+.banner { background: #fff7e0; border: 1px solid #f0d78a; color: #6b5310; border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; font-size: .9rem; }
+.banner .link { padding: 0; font-size: .9rem; font-weight: 600; }
+.boton-azul { background: var(--azul); color: #fff; }
+.boton-secundario.borde { border: 1px solid var(--borde); margin: 0 0 14px; }
+.peligro { border: 1px solid #f1c6c0; }
+.peligro h3 { color: var(--error); }
+.boton-peligro { background: var(--error); color: #fff; }
+
+/* ----- Visor de la cámara a pantalla completa ----- */
+.visor[hidden] { display: none; }
+.visor {
+  position: fixed; inset: 0; z-index: 10; margin: 0; border-radius: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  padding: env(safe-area-inset-top) 16px calc(16px + env(safe-area-inset-bottom));
+}
+.cuadro { position: relative; }
+.visor video { border-radius: 12px; }
+.estado-visor { color: #fff; text-align: center; margin: 14px 0 0; }
+
 .pie { text-align: center; font-size: .75rem; color: var(--gris); padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }

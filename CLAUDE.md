@@ -55,7 +55,13 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   Probada en el iPhone: se instala y el escaneo del DNI funciona.
 - El código de barras del DNI NO trae domicilio (está solo impreso al dorso): el domicilio se carga a mano.
 - Hecho también: lista "Mis empleados" y edición.
+- Gestión de usuario (en prueba): crear cuenta (con aceptación Ley 25.326 guardada en metadata), olvidé contraseña,
+  "Mis datos" del empleador (tabla `empleadores`, incluye lugar de trabajo del personal), cambiar email/contraseña,
+  eliminar cuenta (función `borrar_mi_cuenta`, borra en cascada). Mails en español ya escritos en `supabase/mails_en_espanol.md`, pero Supabase no deja cargarlos sin SMTP propio: por ahora salen en inglés.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
+- Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae
+  Supabase gratis solo manda a emails del equipo del proyecto y tiene pocos envíos por hora.
+- Pendiente antes de cobrar: texto de política de privacidad / términos.
 
 ## Marca
 - Nombre: **CasaEnRegla**

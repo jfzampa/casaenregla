@@ -22,164 +22,325 @@
     </div>
   </header>
 
-  <!-- ===== Login ===== -->
+  <!-- =====================================================
+       PANTALLAS SIN SESIÓN (entrar, crear cuenta, etc.)
+       ===================================================== -->
   <main id="pantallaLogin" hidden>
-    <h2>Entrar</h2>
-    <form id="formLogin" class="tarjeta">
-      <label>Email
-        <input name="email" type="email" required autocomplete="email">
-      </label>
-      <label>Contraseña
-        <input name="password" type="password" required autocomplete="current-password">
-      </label>
-      <button type="submit" class="boton boton-principal">Entrar</button>
-      <p id="estadoLogin" class="estado" role="status"></p>
-    </form>
+    <p id="avisoLogin" class="estado" role="status"></p>
+
+    <!-- Entrar -->
+    <section id="vistaEntrar" class="vista-login">
+      <h2>Entrar</h2>
+      <form id="formEntrar" class="tarjeta" novalidate>
+        <label>Email
+          <input name="email" type="email" required autocomplete="email">
+        </label>
+        <label>Contraseña
+          <input name="password" type="password" required autocomplete="current-password">
+        </label>
+        <button type="submit" class="boton boton-principal">Entrar</button>
+        <p class="estado" role="status"></p>
+      </form>
+      <p class="links">
+        <button type="button" class="link" data-ir="vistaCrear">Crear cuenta</button>
+        <button type="button" class="link" data-ir="vistaOlvide">Olvidé mi contraseña</button>
+      </p>
+    </section>
+
+    <!-- Crear cuenta -->
+    <section id="vistaCrear" class="vista-login" hidden>
+      <h2>Crear cuenta</h2>
+      <form id="formCrear" class="tarjeta" novalidate>
+        <label>Email
+          <input name="email" type="email" required autocomplete="email">
+        </label>
+        <label>Contraseña (mínimo 8 caracteres)
+          <input name="password" type="password" required minlength="8" autocomplete="new-password">
+        </label>
+        <label>Repetí la contraseña
+          <input name="password2" type="password" required minlength="8" autocomplete="new-password">
+        </label>
+        <label class="opcion chico">
+          <input type="checkbox" name="acepto" required>
+          Acepto que CasaEnRegla guarde mis datos y los de mi personal para usar la app. Puedo pedir verlos, corregirlos o borrarlos en cualquier momento (Ley 25.326).
+        </label>
+        <button type="submit" class="boton boton-principal">Crear cuenta</button>
+        <p class="estado" role="status"></p>
+      </form>
+      <p class="links"><button type="button" class="link" data-ir="vistaEntrar">Ya tengo cuenta</button></p>
+    </section>
+
+    <!-- Olvidé mi contraseña -->
+    <section id="vistaOlvide" class="vista-login" hidden>
+      <h2>Olvidé mi contraseña</h2>
+      <form id="formOlvide" class="tarjeta" novalidate>
+        <p class="ayuda arriba">Te mandamos un mail con un link para elegir una contraseña nueva.</p>
+        <label>Email
+          <input name="email" type="email" required autocomplete="email">
+        </label>
+        <button type="submit" class="boton boton-principal">Mandar link</button>
+        <p class="estado" role="status"></p>
+      </form>
+      <p class="links"><button type="button" class="link" data-ir="vistaEntrar">Volver a entrar</button></p>
+    </section>
+
+    <!-- Contraseña nueva (al abrir el link del mail) -->
+    <section id="vistaNuevaClave" class="vista-login" hidden>
+      <h2>Elegí tu contraseña nueva</h2>
+      <form id="formNuevaClave" class="tarjeta" novalidate>
+        <label>Contraseña nueva (mínimo 8 caracteres)
+          <input name="password" type="password" required minlength="8" autocomplete="new-password">
+        </label>
+        <label>Repetila
+          <input name="password2" type="password" required minlength="8" autocomplete="new-password">
+        </label>
+        <button type="submit" class="boton boton-principal">Guardar contraseña</button>
+        <p class="estado" role="status"></p>
+      </form>
+    </section>
   </main>
 
+  <!-- =====================================================
+       APP (con sesión)
+       ===================================================== -->
   <main id="pantallaApp" hidden>
-    <div class="usuario"><span id="emailUsuario"></span> <button type="button" id="btnSalir" class="link">Salir</button></div>
+    <nav class="pestanias">
+      <button type="button" data-vista="vistaLista" class="activa">Empleados</button>
+      <button type="button" data-vista="vistaPerfil">Mis datos</button>
+      <button type="button" data-vista="vistaCuenta">Mi cuenta</button>
+    </nav>
 
     <!-- ===== Lista de empleados ===== -->
-    <div id="vistaLista">
+    <div id="vistaLista" class="vista">
+      <div id="bannerPerfil" class="banner" hidden>
+        Completá <b>tus datos de empleador</b>: hacen falta para el recibo de sueldo.
+        <button type="button" class="link" data-vista="vistaPerfil">Completar</button>
+      </div>
       <h2>Mis empleados</h2>
       <p id="estadoLista" class="estado" role="status"></p>
       <div id="listaEmpleados"></div>
-      <button type="button" id="btnNueva" class="boton boton-principal">+ Nuevo empleado</button>
+      <button type="button" id="btnNuevo" class="boton boton-principal">+ Nuevo empleado</button>
     </div>
 
-    <!-- ===== Formulario (nueva o editar) ===== -->
-    <div id="vistaForm" hidden>
-    <button type="button" id="btnVolver" class="link volver">← Volver a mis empleados</button>
-    <h2 id="tituloForm">Nuevo empleado</h2>
+    <!-- ===== Formulario empleado (nuevo o editar) ===== -->
+    <div id="vistaForm" class="vista" hidden>
+      <button type="button" class="link volver" data-vista="vistaLista">← Volver a mis empleados</button>
+      <h2 id="tituloForm">Nuevo empleado</h2>
 
-    <!-- ===== Escaneo de DNI ===== -->
-    <section class="tarjeta">
-      <button type="button" id="btnEscanear" class="boton boton-principal">📷 Escanear DNI</button>
-      <p class="ayuda">Apuntá la cámara al código de barras del <b>frente</b> del DNI. No se guarda la foto, solo los datos.</p>
-      <div id="visor" class="visor" hidden>
-        <video id="video" playsinline muted></video>
-        <div class="marco"></div>
-        <button type="button" id="btnCancelarScan" class="boton boton-secundario">Cancelar</button>
-      </div>
-      <p id="estadoScan" class="estado" role="status"></p>
-    </section>
+      <form id="formEmpleado" novalidate>
+        <section class="tarjeta">
+          <button type="button" class="boton boton-principal" data-escanear>📷 Escanear DNI</button>
+          <p class="ayuda">Apuntá la cámara al código de barras del <b>frente</b> del DNI. No se guarda la foto, solo los datos.</p>
+          <p class="estado estado-scan" role="status"></p>
+        </section>
 
-    <form id="formEmpleado" novalidate>
-      <!-- ===== Datos personales ===== -->
-      <section class="tarjeta">
-        <h3>Datos personales</h3>
-
-        <label>Apellido
-          <input name="apellido" required autocomplete="off">
-        </label>
-        <label>Nombre
-          <input name="nombre" required autocomplete="off">
-        </label>
-
-        <div class="fila">
-          <label>DNI
-            <input name="dni" required inputmode="numeric" pattern="\d{7,8}" maxlength="8">
+        <section class="tarjeta">
+          <h3>Datos personales</h3>
+          <label>Apellido <input name="apellido" required autocomplete="off"></label>
+          <label>Nombre <input name="nombre" required autocomplete="off"></label>
+          <div class="fila">
+            <label>DNI <input name="dni" required inputmode="numeric" maxlength="8"></label>
+            <label>Sexo
+              <select name="sexo" required>
+                <option value="">Elegir…</option>
+                <option value="F">Femenino</option>
+                <option value="M">Masculino</option>
+                <option value="X">X</option>
+              </select>
+            </label>
+          </div>
+          <label>Fecha de nacimiento <input name="fecha_nacimiento" type="date"></label>
+          <label>CUIL
+            <div class="con-boton">
+              <input name="cuil" required inputmode="numeric" placeholder="27-12345678-9">
+              <button type="button" class="boton boton-chico" data-calcular-cuil>Calcular</button>
+            </div>
           </label>
-          <label>Sexo
-            <select name="sexo" required>
+          <p class="ayuda aviso-cuil"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h3>Domicilio</h3>
+          <div class="fila">
+            <label class="ancho">Calle <input name="calle"></label>
+            <label>Número <input name="numero" inputmode="numeric"></label>
+          </div>
+          <div class="fila">
+            <label>Piso / Depto <input name="piso_depto"></label>
+            <label>Código postal <input name="codigo_postal"></label>
+          </div>
+          <label>Localidad <input name="localidad"></label>
+          <label>Provincia <select name="provincia" class="sel-provincia"></select></label>
+        </section>
+
+        <section class="tarjeta">
+          <h3>Datos laborales</h3>
+          <label>Fecha de ingreso <input name="fecha_ingreso" type="date" required></label>
+          <label>Categoría
+            <select name="categoria" required>
               <option value="">Elegir…</option>
-              <option value="F">Femenino</option>
-              <option value="M">Masculino</option>
-              <option value="X">X</option>
+              <option value="1">1ª — Supervisor/a</option>
+              <option value="2">2ª — Tareas específicas (cocinero/a, etc.)</option>
+              <option value="3">3ª — Caseros</option>
+              <option value="4">4ª — Asistencia y cuidado de personas</option>
+              <option value="5">5ª — Tareas generales (limpieza, etc.)</option>
             </select>
           </label>
-        </div>
+          <fieldset>
+            <legend>Modalidad</legend>
+            <label class="opcion"><input type="radio" name="modalidad" value="con_retiro" required> Con retiro</label>
+            <label class="opcion"><input type="radio" name="modalidad" value="sin_retiro"> Sin retiro (vive en la casa)</label>
+          </fieldset>
+          <label>Horas semanales <input name="horas_semanales" type="number" min="1" max="48" inputmode="numeric"></label>
+          <fieldset>
+            <legend>Días de trabajo</legend>
+            <div class="dias">
+              <label><input type="checkbox" name="dias" value="lun">Lun</label>
+              <label><input type="checkbox" name="dias" value="mar">Mar</label>
+              <label><input type="checkbox" name="dias" value="mie">Mié</label>
+              <label><input type="checkbox" name="dias" value="jue">Jue</label>
+              <label><input type="checkbox" name="dias" value="vie">Vie</label>
+              <label><input type="checkbox" name="dias" value="sab">Sáb</label>
+              <label><input type="checkbox" name="dias" value="dom">Dom</label>
+            </div>
+          </fieldset>
+        </section>
 
-        <label>Fecha de nacimiento
-          <input name="fecha_nacimiento" type="date">
-        </label>
+        <p class="errores" role="alert"></p>
+        <button type="submit" class="boton boton-principal">Guardar</button>
+        <p class="estado estado-guardar" role="status"></p>
+      </form>
+    </div>
 
-        <label>CUIL
-          <div class="con-boton">
-            <input name="cuil" required inputmode="numeric" placeholder="27-12345678-9">
-            <button type="button" id="btnCalcularCuil" class="boton boton-chico">Calcular</button>
+    <!-- ===== Mis datos (empleador) ===== -->
+    <div id="vistaPerfil" class="vista" hidden>
+      <h2>Mis datos</h2>
+      <p class="ayuda arriba">Son tus datos como empleador. Se usan en los recibos de sueldo.</p>
+
+      <form id="formPerfil" novalidate>
+        <section class="tarjeta">
+          <button type="button" class="boton boton-principal" data-escanear>📷 Escanear mi DNI</button>
+          <p class="estado estado-scan" role="status"></p>
+        </section>
+
+        <section class="tarjeta">
+          <h3>Datos personales</h3>
+          <label>Apellido <input name="apellido" required autocomplete="family-name"></label>
+          <label>Nombre <input name="nombre" required autocomplete="given-name"></label>
+          <div class="fila">
+            <label>DNI <input name="dni" inputmode="numeric" maxlength="8"></label>
+            <label>Sexo
+              <select name="sexo">
+                <option value="">Elegir…</option>
+                <option value="F">Femenino</option>
+                <option value="M">Masculino</option>
+                <option value="X">X</option>
+              </select>
+            </label>
           </div>
-        </label>
-        <p id="avisoCuil" class="ayuda"></p>
-      </section>
-
-      <!-- ===== Domicilio ===== -->
-      <section class="tarjeta">
-        <h3>Domicilio</h3>
-        <div class="fila">
-          <label class="ancho">Calle
-            <input name="calle">
+          <label>Fecha de nacimiento <input name="fecha_nacimiento" type="date"></label>
+          <label>CUIL / CUIT
+            <div class="con-boton">
+              <input name="cuil" required inputmode="numeric" placeholder="20-12345678-9">
+              <button type="button" class="boton boton-chico" data-calcular-cuil>Calcular</button>
+            </div>
           </label>
-          <label>Número
-            <input name="numero" inputmode="numeric">
+          <p class="ayuda aviso-cuil"></p>
+          <label>Teléfono celular
+            <input name="telefono" type="tel" inputmode="tel" autocomplete="tel" placeholder="11 1234-5678">
           </label>
-        </div>
-        <div class="fila">
-          <label>Piso / Depto
-            <input name="piso_depto">
-          </label>
-          <label>Código postal
-            <input name="codigo_postal">
-          </label>
-        </div>
-        <label>Localidad
-          <input name="localidad">
-        </label>
-        <label>Provincia
-          <select name="provincia" id="selProvincia"></select>
-        </label>
-      </section>
+        </section>
 
-      <!-- ===== Datos laborales ===== -->
-      <section class="tarjeta">
-        <h3>Datos laborales</h3>
-
-        <label>Fecha de ingreso
-          <input name="fecha_ingreso" type="date" required>
-        </label>
-
-        <label>Categoría
-          <select name="categoria" required>
-            <option value="">Elegir…</option>
-            <option value="1">1ª — Supervisor/a</option>
-            <option value="2">2ª — Tareas específicas (cocinero/a, etc.)</option>
-            <option value="3">3ª — Caseros</option>
-            <option value="4">4ª — Asistencia y cuidado de personas</option>
-            <option value="5">5ª — Tareas generales (limpieza, etc.)</option>
-          </select>
-        </label>
-
-        <fieldset>
-          <legend>Modalidad</legend>
-          <label class="opcion"><input type="radio" name="modalidad" value="con_retiro" required> Con retiro</label>
-          <label class="opcion"><input type="radio" name="modalidad" value="sin_retiro"> Sin retiro (vive en la casa)</label>
-        </fieldset>
-
-        <label>Horas semanales
-          <input name="horas_semanales" type="number" min="1" max="48" inputmode="numeric">
-        </label>
-
-        <fieldset>
-          <legend>Días de trabajo</legend>
-          <div class="dias">
-            <label><input type="checkbox" name="dias" value="lun">Lun</label>
-            <label><input type="checkbox" name="dias" value="mar">Mar</label>
-            <label><input type="checkbox" name="dias" value="mie">Mié</label>
-            <label><input type="checkbox" name="dias" value="jue">Jue</label>
-            <label><input type="checkbox" name="dias" value="vie">Vie</label>
-            <label><input type="checkbox" name="dias" value="sab">Sáb</label>
-            <label><input type="checkbox" name="dias" value="dom">Dom</label>
+        <section class="tarjeta">
+          <h3>Mi domicilio</h3>
+          <div class="fila">
+            <label class="ancho">Calle <input name="calle"></label>
+            <label>Número <input name="numero" inputmode="numeric"></label>
           </div>
-        </fieldset>
+          <div class="fila">
+            <label>Piso / Depto <input name="piso_depto"></label>
+            <label>Código postal <input name="codigo_postal"></label>
+          </div>
+          <label>Localidad <input name="localidad"></label>
+          <label>Provincia <select name="provincia" class="sel-provincia"></select></label>
+        </section>
+
+        <section class="tarjeta">
+          <h3>Lugar donde trabaja el personal</h3>
+          <label class="opcion"><input type="checkbox" name="trabajo_mismo_domicilio" checked> Es el mismo que mi domicilio</label>
+          <div id="bloqueTrabajo" hidden>
+            <div class="fila">
+              <label class="ancho">Calle <input name="trabajo_calle"></label>
+              <label>Número <input name="trabajo_numero" inputmode="numeric"></label>
+            </div>
+            <div class="fila">
+              <label>Piso / Depto <input name="trabajo_piso_depto"></label>
+              <label>Código postal <input name="trabajo_codigo_postal"></label>
+            </div>
+            <label>Localidad <input name="trabajo_localidad"></label>
+            <label>Provincia <select name="trabajo_provincia" class="sel-provincia"></select></label>
+          </div>
+        </section>
+
+        <p class="errores" role="alert"></p>
+        <button type="submit" class="boton boton-principal">Guardar mis datos</button>
+        <p class="estado estado-guardar" role="status"></p>
+      </form>
+    </div>
+
+    <!-- ===== Mi cuenta ===== -->
+    <div id="vistaCuenta" class="vista" hidden>
+      <h2>Mi cuenta</h2>
+
+      <section class="tarjeta">
+        <h3>Email</h3>
+        <p>Entrás con: <b id="emailActual"></b></p>
+        <form id="formEmail" novalidate>
+          <label>Email nuevo <input name="email" type="email" required autocomplete="email"></label>
+          <button type="submit" class="boton boton-azul">Cambiar email</button>
+          <p class="estado" role="status"></p>
+        </form>
       </section>
 
-      <p id="errores" class="errores" role="alert"></p>
-      <button type="submit" id="btnGuardar" class="boton boton-principal">Guardar</button>
-      <p id="estadoGuardar" class="estado" role="status"></p>
-    </form>
+      <section class="tarjeta">
+        <h3>Contraseña</h3>
+        <form id="formClave" novalidate>
+          <label>Contraseña nueva (mínimo 8 caracteres)
+            <input name="password" type="password" required minlength="8" autocomplete="new-password">
+          </label>
+          <label>Repetila
+            <input name="password2" type="password" required minlength="8" autocomplete="new-password">
+          </label>
+          <button type="submit" class="boton boton-azul">Cambiar contraseña</button>
+          <p class="estado" role="status"></p>
+        </form>
+      </section>
+
+      <button type="button" id="btnSalir" class="boton boton-secundario borde">Salir de la cuenta</button>
+
+      <section class="tarjeta peligro">
+        <h3>Eliminar mi cuenta</h3>
+        <p class="ayuda arriba">Borra tu cuenta, tus datos y los de todo tu personal. <b>No se puede deshacer.</b></p>
+        <form id="formBorrar" novalidate>
+          <label>Para confirmar, escribí <b>BORRAR</b>
+            <input name="confirmacion" autocomplete="off" autocapitalize="characters">
+          </label>
+          <button type="submit" class="boton boton-peligro">Eliminar mi cuenta</button>
+          <p class="estado" role="status"></p>
+        </form>
+      </section>
     </div>
   </main>
+
+  <!-- ===== Visor de la cámara (compartido) ===== -->
+  <div id="visor" class="visor" hidden>
+    <div class="cuadro">
+      <video id="video" playsinline muted></video>
+      <div class="marco"></div>
+    </div>
+    <p id="estadoVisor" class="estado-visor">Buscando el código de barras…</p>
+    <button type="button" id="btnCancelarScan" class="boton boton-secundario">Cancelar</button>
+  </div>
 
   <footer class="pie">CasaEnRegla es una app privada. No pertenece a ARCA ni a ningún organismo público.</footer>
 
