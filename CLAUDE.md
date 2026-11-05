@@ -79,6 +79,15 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Regla: **ningún valor llega a los usuarios sin aprobación del dueño** (controles automáticos: 10 renglones, aumento razonable, 3ª = 4ª con retiro).
 
 ## Ideas futuras
+- **App/portal del empleado** (idea del dueño, 2026-11-05):
+  - Comunicaciones oficiales y acuerdos (medio de pago, descuento de aportes, vacaciones, preaviso) aceptados con firma electrónica, con registro de fecha y hora.
+  - **Presentismo diario**: el empleado marca "presente" desde su celular; la app guarda hora y ubicación de ese momento y la compara
+    con el lugar de trabajo (radio de X metros alrededor del domicilio de "Mis datos"). El empleador confirma o no.
+  - **Ausencias**: el empleado informa y sube la justificación (certificado, etc.); el empleador la marca justificada o injustificada.
+  - Todo alimenta las **novedades del mes** (faltas, horas extra) que hoy carga el empleador → la liquidación se arma sola.
+  - Cuidados: Ley 25.326 (la ubicación es dato personal): consentimiento informado, ubicación **solo al marcar** (nunca seguimiento continuo),
+    finalidad limitada, acceso del empleado a sus datos. El GPS se puede falsear: la ubicación es un indicio, no una prueba;
+    por eso la confirmación de ambas partes. En iPhone la PWA solo puede pedir ubicación con la app abierta (alcanza para marcar).
 - **Contadores / estudios** como usuarios: que puedan usar la app para varios empleadores-clientes y fijar sus propios criterios
   (ya existe el patrón: criterio general + criterio por empleador, ej. divisor de vacaciones).
 - **Acceso del empleado**: que el empleado vea sus recibos y los acuerdos (descuento de aportes, medio de pago acordado) y los acepte con firma electrónica, quedando asentado.
@@ -142,7 +151,12 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   si no se preavisó, SAC s/ ambos (opcional, tildado), indemnización art. 48 (años + fracción > 3 meses, mín. 1, mejor remuneración
   últimos 12 meses sin SAC, editable). Dentro del período de prueba avisa que no corresponde. Al guardar se registra la baja en
   `empleados.fecha_egreso/causa_egreso`; las bajas se muestran marcadas y no generan avisos. También: ingreso a mitad de mes = proporcional.
-- Pendiente: novedades día a día durante el mes. No incluido en la final: multas por falta de registración (art. 50), SAC s/ vacaciones no gozadas.
+- Novedades día a día ✔ (`supabase/16_novedades.sql`): calendario del mes en la ficha del empleado; tocar un día → falta injustificada
+  (se descuenta), falta justificada (con justificativo en Storage `<uid>/novedades/`), horas extra 50/100, feriado trabajado, nota.
+  Al liquidar un mes nuevo se cargan solas (`Liquidacion.resumirNovedades`); botón "Traer las novedades del calendario" para actualizar.
+  Cada novedad guarda `cargado_por` y `confirmado_empleador/empleado` → base del presentismo con confirmación de ambas partes (portal).
+  La carga manual del empleador queda siempre (por si el empleado no tiene o no puede usar el celular).
+- No incluido en la liquidación final (a pedido se agrega): multas por falta de registración (art. 50), SAC s/ vacaciones no gozadas.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae
   Supabase gratis solo manda a emails del equipo del proyecto y tiene pocos envíos por hora.

@@ -439,6 +439,9 @@ async function abrirFicha(empleado) {
   ].filter(Boolean).join(' · ');
   el('resumenFicha').innerHTML = '<p class="ayuda">Cargando…</p>';
   el('listaLiqFicha').innerHTML = '';
+  el('mesNovedades').value = mesActual();
+  el('formNovedad').hidden = true;
+  cargarNovedades();
 
   const { data, error } = await db.from('liquidaciones').select('*').eq('empleado_id', e.id).order('periodo', { ascending: false });
   if (fichaActual !== empleado) return; // se cambió de pantalla mientras cargaba
@@ -500,6 +503,161 @@ el('listaLiqFicha').addEventListener('click', (ev) => {
 });
 el('btnFichaLiquidar').addEventListener('click', () => abrirLiquidacion(fichaActual));
 el('btnFichaEditar').addEventListener('click', () => abrirEmpleado(fichaActual));
+
+// ================= Novedades día a día (calendario del mes) =================
+const TIPOS_NOV = {
+  falta_injustificada: 'Falta injustificada', falta_justificada: 'Falta justificada',
+  horas_extra_50: 'Horas extra 50%', horas_extra_100: 'Horas extra 100%',
+  feriado_trabajado: 'Trabajó feriado', nota: 'Nota',
+};
+const DIA_A_NUM = { dom: 0, lun: 1, mar: 2, mie: 3, jue: 4, vie: 5, sab: 6 };
+let novedadesMes = [];
+
+const rangoMes = (mes) => {
+  const [a, m] = mes.split('-').map(Number);
+  return [`${mes}-01`, m === 12 ? `${a + 1}-01-01` : `${a}-${String(m + 1).padStart(2, '0')}-01`];
+};
+
+async function novedadesDe(empleadoId, mes) {
+  const [desde, hasta] = rangoMes(mes);
+  const { data, error } = await db.from('novedades').select('*').eq('empleado_id', empleadoId)
+    .gte('fecha', desde).lt('fecha', hasta).order('fecha').order('creado');
+  if (error) throw error;
+  return data;
+}
+
+async function cargarNovedades() {
+  const e = fichaActual;
+  const mes = el('mesNovedades').value || mesActual();
+  try {
+    novedadesMes = await novedadesDe(e.id, mes);
+  } catch (err) {
+    novedadesMes = [];
+    el('listaNovedades').innerHTML = '<li>No se pudieron cargar las novedades. ¿Corriste el SQL 16?</li>';
+    console.error(err);
+  }
+  if (fichaActual !== e) return;
+  dibujarCalendario(mes);
+  dibujarListaNovedades();
+}
+el('mesNovedades').addEventListener('change', cargarNovedades);
+
+function dibujarCalendario(mes) {
+  const [a, m] = mes.split('-').map(Number);
+  const dias = new Date(a, m, 0).getDate();
+  const offset = (new Date(a, m - 1, 1).getDay() + 6) % 7; // semana empieza el lunes
+  const laborales = new Set((fichaActual.dias || []).map((d) => DIA_A_NUM[d]));
+  const hoy = hoyIso();
+  let html = ['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((d) => `<span class="cab">${d}</span>`).join('');
+  html += '<span></span>'.repeat(offset);
+  for (let d = 1; d <= dias; d++) {
+    const fecha = `${mes}-${String(d).padStart(2, '0')}`;
+    const tipos = [...new Set(novedadesMes.filter((n) => n.fecha === fecha).map((n) => n.tipo))];
+    const clases = [laborales.has(new Date(a, m - 1, d).getDay()) ? 'laboral' : '', fecha === hoy ? 'hoy' : ''].join(' ');
+    html += `<button type="button" class="${clases}" data-fecha="${fecha}">${d}
+      <span class="puntos">${tipos.map((t) => `<i class="nov-${t}"></i>`).join('')}</span></button>`;
+  }
+  el('calendario').innerHTML = html;
+}
+
+function dibujarListaNovedades() {
+  el('listaNovedades').innerHTML = novedadesMes.length ? novedadesMes.map((n) => `
+    <li><i class="nov-${n.tipo}"></i>
+      <span class="txt"><b>${fechaCorta(n.fecha)}</b> · ${TIPOS_NOV[n.tipo]}${n.horas ? ` · ${Number(n.horas)} hs` : ''}${n.descripcion ? ` — ${escapar(n.descripcion)}` : ''}
+        <small>Cargada por ${n.cargado_por === 'empleado' ? 'el empleado' : 'vos'} · Empleado: ${n.confirmado_empleado ? '✓ confirmó' : 'sin confirmar'}${n.archivo ? ` · <button type="button" class="link" data-ver-nov="${escapar(n.archivo)}">Ver justificativo</button>` : ''}</small>
+      </span>
+      <button type="button" class="borrar" data-borrar-nov="${n.id}">Borrar</button>
+    </li>`).join('') : '<li class="ayuda">Sin novedades este mes.</li>';
+}
+
+el('calendario').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-fecha]');
+  if (!b) return;
+  const f = el('formNovedad');
+  f.reset();
+  limpiarMarcas(f);
+  f.elements.fecha.value = b.dataset.fecha;
+  const [a, m, d] = b.dataset.fecha.split('-').map(Number);
+  const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+  el('tituloNovedad').textContent = `Novedad del ${DIAS[new Date(a, m - 1, d).getDay()]} ${fechaCorta(b.dataset.fecha)}`;
+  actualizarFormNovedad();
+  f.hidden = false;
+  f.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+function actualizarFormNovedad() {
+  const tipo = el('formNovedad').elements.tipo.value;
+  el('formNovedad').querySelector('.solo-horas').hidden = !['horas_extra_50', 'horas_extra_100', 'feriado_trabajado'].includes(tipo);
+  el('formNovedad').querySelector('.solo-justificada').hidden = !['falta_justificada', 'falta_injustificada', 'nota'].includes(tipo);
+}
+el('formNovedad').elements.tipo.addEventListener('change', actualizarFormNovedad);
+el('btnCancelarNovedad').addEventListener('click', () => { el('formNovedad').hidden = true; });
+
+el('formNovedad').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const f = ev.target, estado = estadoDe(f);
+  const tipo = f.elements.tipo.value;
+  const conHoras = ['horas_extra_50', 'horas_extra_100', 'feriado_trabajado'].includes(tipo);
+  const horas = Number(f.elements.horas.value) || null;
+  if (conHoras && !horas) { mostrarEstado(estado, 'Indicá la cantidad de horas.', true); return; }
+  const fila = {
+    empleado_id: fichaActual.id, fecha: f.elements.fecha.value, tipo,
+    horas: conHoras ? horas : null, descripcion: f.elements.descripcion.value.trim() || null,
+  };
+  mostrarEstado(estado, 'Guardando…');
+  const { data, error } = await db.from('novedades').insert(fila).select().single();
+  if (error) { mostrarEstado(estado, 'No se pudo guardar. ¿Corriste el SQL 16?', true); console.error(error); return; }
+
+  const archivo = f.elements.archivo.files[0];
+  if (archivo && !f.querySelector('.solo-justificada').hidden) {
+    if (archivo.size > 10 * 1024 * 1024) { mostrarEstado(estado, 'Se guardó, pero el archivo supera 10 MB.', true); }
+    else {
+      const { data: { user } } = await db.auth.getUser();
+      const ext = (archivo.name.split('.').pop() || 'pdf').toLowerCase();
+      const ruta = `${user.id}/novedades/${data.id}.${ext}`;
+      const sub = await db.storage.from('comprobantes').upload(ruta, archivo, { upsert: true, contentType: archivo.type });
+      if (!sub.error) await db.from('novedades').update({ archivo: ruta }).eq('id', data.id);
+      else console.error(sub.error);
+    }
+  }
+  f.hidden = true;
+  cargarNovedades();
+});
+
+el('listaNovedades').addEventListener('click', async (ev) => {
+  const ver = ev.target.closest('[data-ver-nov]');
+  if (ver) {
+    const { data, error } = await db.storage.from('comprobantes').createSignedUrl(ver.dataset.verNov, 120);
+    if (error) { alert('No se pudo abrir el archivo.'); return; }
+    window.open(data.signedUrl, '_blank');
+    return;
+  }
+  const b = ev.target.closest('[data-borrar-nov]');
+  if (!b || !confirm('¿Borrar esta novedad?')) return;
+  const n = novedadesMes.find((x) => x.id === b.dataset.borrarNov);
+  const { error } = await db.from('novedades').delete().eq('id', b.dataset.borrarNov);
+  if (error) { alert('No se pudo borrar.'); console.error(error); return; }
+  if (n && n.archivo) db.storage.from('comprobantes').remove([n.archivo]);
+  cargarNovedades();
+});
+
+// Pasa las novedades del calendario a la liquidación del mes
+async function traerNovedades(avisarSiNoHay) {
+  const periodo = formLiq.elements.periodo.value;
+  const aviso = el('avisoNovedades');
+  let lista;
+  try { lista = await novedadesDe(liq.empleado.id, periodo); } catch (err) { aviso.textContent = ''; console.error(err); return; }
+  const r = Liquidacion.resumirNovedades(lista);
+  if (!r.cantidad) { aviso.textContent = avisarSiNoHay ? 'No hay novedades cargadas en el calendario para este mes.' : ''; return; }
+  formLiq.elements.faltas_dias.value = r.faltas_dias || '';
+  formLiq.elements.horas_extra_50.value = r.horas_extra_50 || '';
+  formLiq.elements.horas_extra_100.value = r.horas_extra_100 || '';
+  formLiq.elements.horas_feriado.value = r.horas_feriado || '';
+  aviso.textContent = `✓ Se cargaron ${r.cantidad} novedad${r.cantidad === 1 ? '' : 'es'} del calendario` +
+    (r.sin_confirmar_empleado ? ` (${r.sin_confirmar_empleado} sin confirmar por el empleado)` : '') + '.';
+  recalcular();
+}
+el('btnTraerNovedades').addEventListener('click', () => traerNovedades(true));
 
 // ================= Liquidar mes =================
 const formLiq = el('formLiq');
@@ -629,6 +787,7 @@ async function cargarPeriodo() {
   const periodo = formLiq.elements.periodo.value;
   if (!periodo) return;
   limpiarMarcas(formLiq);
+  el('avisoNovedades').textContent = '';
   liq.fila = null;
   formCierre.hidden = true;
   listaOtros.innerHTML = '';
@@ -689,6 +848,7 @@ async function cargarPeriodo() {
   } else {
     (liq.empleado.conceptos_fijos || []).forEach((o) => agregarOtro({ ...o, fijo: true }));
     mostrarEstado(estado, '');
+    traerNovedades(false);
   }
   recalcular();
   if (liqIrACierre) {

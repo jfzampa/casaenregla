@@ -229,6 +229,30 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .estado-liq-chip.pagada { background: #dff3e8; color: var(--verde-oscuro); }
 .liq-item .desvios { color: #9a5b00; }
 
+/* ----- Novedades: calendario del mes ----- */
+.calendario { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 10px; }
+.calendario .cab { text-align: center; font-size: .72rem; color: var(--gris); padding: 2px 0; }
+.calendario button {
+  position: relative; aspect-ratio: 1; min-width: 0; border: 1px solid #eef0f2; border-radius: 8px; background: #fff;
+  font: inherit; font-size: .85rem; color: var(--texto); cursor: pointer; padding: 0;
+}
+.calendario button.laboral { background: #f4f8f6; }
+.calendario button.hoy { border: 2px solid var(--azul); }
+.calendario button .puntos { position: absolute; left: 0; right: 0; bottom: 3px; display: flex; justify-content: center; gap: 2px; }
+.calendario button .puntos i { width: 6px; height: 6px; border-radius: 50%; display: block; }
+.nov-falta_injustificada { background: var(--error); }
+.nov-falta_justificada { background: #e0a100; }
+.nov-horas_extra_50, .nov-horas_extra_100 { background: var(--azul); }
+.nov-feriado_trabajado { background: #7b4fc9; }
+.nov-nota { background: #9aa3ad; }
+.caja-nueva h4 { margin: 0 0 8px; color: var(--azul); }
+.lista-novedades { list-style: none; margin: 0; padding: 0; font-size: .88rem; }
+.lista-novedades li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid #eef0f2; }
+.lista-novedades li > i { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; }
+.lista-novedades li .txt { flex: 1; }
+.lista-novedades li small { display: block; color: var(--gris); }
+.lista-novedades li .borrar { background: none; border: none; color: var(--error); font-size: .8rem; text-decoration: underline; cursor: pointer; padding: 0; }
+
 /* ----- Liquidación ----- */
 .otro { border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
 .otro .fila { align-items: flex-end; }

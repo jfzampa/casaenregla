@@ -305,6 +305,22 @@
     return { semestre, inicio, fin, dias, diasSemestre, completo, importe, detalle };
   }
 
+  // ===== Novedades del calendario → novedades de la liquidación =====
+  function resumirNovedades(lista) {
+    const r = { faltas_dias: 0, horas_extra_50: 0, horas_extra_100: 0, horas_feriado: 0, cantidad: 0, sin_confirmar_empleado: 0 };
+    for (const n of lista || []) {
+      const h = Number(n.horas) || 0;
+      if (n.tipo === 'falta_injustificada') r.faltas_dias += 1;
+      else if (n.tipo === 'horas_extra_50') r.horas_extra_50 += h;
+      else if (n.tipo === 'horas_extra_100') r.horas_extra_100 += h;
+      else if (n.tipo === 'feriado_trabajado') r.horas_feriado += h;
+      else continue; // justificadas y notas no cambian la liquidación
+      r.cantidad++;
+      if (!n.confirmado_empleado) r.sin_confirmar_empleado++;
+    }
+    return r;
+  }
+
   // ===== Días hábiles y avisos =====
   const isoDe = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const fechaDe = (iso) => { const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d); };
@@ -671,7 +687,7 @@
   }
 
   const api = {
-    calcular, calcularSac, generarAvisos, mesesEntre, sumarMeses, CAUSAS_EGRESO, diaHabil, habilDesde, diasVacaciones, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
+    calcular, calcularSac, generarAvisos, resumirNovedades, mesesEntre, sumarMeses, CAUSAS_EGRESO, diaHabil, habilDesde, diasVacaciones, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
     analizarReciboArca, analizarVep, claveConcepto, analizarAportesArca,
     analizarTextoEscala, controlarEscala,
   };
