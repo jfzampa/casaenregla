@@ -191,10 +191,11 @@ document.querySelectorAll('[data-escanear]').forEach((b) => b.addEventListener('
 el('btnCancelarScan').addEventListener('click', detenerEscaneo);
 
 // ================= Navegación dentro de la app =================
-const VISTAS = ['vistaLista', 'vistaFicha', 'vistaForm', 'vistaLiquidar', 'vistaPerfil', 'vistaCuenta', 'vistaAdmin'];
+const VISTAS = ['vistaLista', 'vistaFicha', 'vistaForm', 'vistaLiquidar', 'vistaTrabajo', 'vistaInvitacion', 'vistaPerfil', 'vistaCuenta', 'vistaAdmin'];
 const ALCARGAR = {
   vistaLista: () => cargarLista(), vistaPerfil: () => cargarPerfil(), vistaCuenta: () => cargarCuenta(),
   vistaAdmin: () => window.cargarAdmin?.(),
+  vistaTrabajo: () => window.cargarTrabajo?.(),
 };
 
 function irA(vista) {
@@ -439,6 +440,7 @@ async function abrirFicha(empleado) {
   ].filter(Boolean).join(' · ');
   el('resumenFicha').innerHTML = '<p class="ayuda">Cargando…</p>';
   el('listaLiqFicha').innerHTML = '';
+  window.dibujarVinculo?.(e);
   el('mesNovedades').value = mesActual();
   el('formNovedad').hidden = true;
   cargarNovedades();
@@ -506,7 +508,7 @@ el('btnFichaEditar').addEventListener('click', () => abrirEmpleado(fichaActual))
 
 // ================= Novedades día a día (calendario del mes) =================
 const TIPOS_NOV = {
-  falta_injustificada: 'Falta injustificada', falta_justificada: 'Falta justificada',
+  presente: 'Presente', falta_injustificada: 'Falta injustificada', falta_justificada: 'Falta justificada',
   horas_extra_50: 'Horas extra 50%', horas_extra_100: 'Horas extra 100%',
   feriado_trabajado: 'Trabajó feriado', nota: 'Nota',
 };
@@ -560,14 +562,28 @@ function dibujarCalendario(mes) {
   el('calendario').innerHTML = html;
 }
 
+function textoPresente(n) {
+  const hora = n.marcado_en ? new Date(n.marcado_en).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '';
+  if (n.distancia_m == null) return ` ${hora} · sin ubicación`;
+  const d = Number(n.distancia_m);
+  const dist = d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1).replace('.', ',')} km`;
+  return ` ${hora} · ${d <= 150 ? '✓' : '⚠'} a ${dist} del lugar de trabajo${n.precision_m ? ` (±${Math.round(n.precision_m)} m)` : ''}`;
+}
+
 function dibujarListaNovedades() {
-  el('listaNovedades').innerHTML = novedadesMes.length ? novedadesMes.map((n) => `
-    <li><i class="nov-${n.tipo}"></i>
-      <span class="txt"><b>${fechaCorta(n.fecha)}</b> · ${TIPOS_NOV[n.tipo]}${n.horas ? ` · ${Number(n.horas)} hs` : ''}${n.descripcion ? ` — ${escapar(n.descripcion)}` : ''}
-        <small>Cargada por ${n.cargado_por === 'empleado' ? 'el empleado' : 'vos'} · Empleado: ${n.confirmado_empleado ? '✓ confirmó' : 'sin confirmar'}${n.archivo ? ` · <button type="button" class="link" data-ver-nov="${escapar(n.archivo)}">Ver justificativo</button>` : ''}</small>
+  el('listaNovedades').innerHTML = novedadesMes.length ? novedadesMes.map((n) => {
+    const delEmpleado = n.cargado_por === 'empleado';
+    const estadoTxt = delEmpleado
+      ? `La cargó ${escapar(fichaActual.nombre)} · Vos: ${n.confirmado_empleador ? '✓ confirmaste' : 'sin confirmar'}`
+      : `La cargaste vos · ${escapar(fichaActual.nombre)}: ${n.confirmado_empleado ? '✓ conforme' : n.observacion_empleado ? `no conforme — "${escapar(n.observacion_empleado)}"` : 'sin responder'}`;
+    return `<li><i class="nov-${n.tipo}"></i>
+      <span class="txt"><b>${fechaCorta(n.fecha)}</b> · ${TIPOS_NOV[n.tipo]}${n.tipo === 'presente' ? textoPresente(n) : ''}${n.horas ? ` · ${Number(n.horas)} hs` : ''}${n.descripcion ? ` — ${escapar(n.descripcion)}` : ''}
+        <small>${estadoTxt}${n.archivo ? ` · <button type="button" class="link" data-ver-nov="${escapar(n.archivo)}">Ver justificativo</button>` : ''}</small>
+        ${delEmpleado && !n.confirmado_empleador ? `<span class="botones-respuesta"><button type="button" class="si" data-confirmar-nov="${n.id}">✓ Confirmar</button></span>` : ''}
       </span>
       <button type="button" class="borrar" data-borrar-nov="${n.id}">Borrar</button>
-    </li>`).join('') : '<li class="ayuda">Sin novedades este mes.</li>';
+    </li>`;
+  }).join('') : '<li class="ayuda">Sin novedades este mes.</li>';
 }
 
 el('calendario').addEventListener('click', (ev) => {
@@ -625,6 +641,13 @@ el('formNovedad').addEventListener('submit', async (ev) => {
 });
 
 el('listaNovedades').addEventListener('click', async (ev) => {
+  const conf = ev.target.closest('[data-confirmar-nov]');
+  if (conf) {
+    const { error } = await db.from('novedades').update({ confirmado_empleador: true }).eq('id', conf.dataset.confirmarNov);
+    if (error) { alert('No se pudo confirmar.'); console.error(error); return; }
+    cargarNovedades();
+    return;
+  }
   const ver = ev.target.closest('[data-ver-nov]');
   if (ver) {
     const { data, error } = await db.storage.from('comprobantes').createSignedUrl(ver.dataset.verNov, 120);
@@ -648,13 +671,19 @@ async function traerNovedades(avisarSiNoHay) {
   let lista;
   try { lista = await novedadesDe(liq.empleado.id, periodo); } catch (err) { aviso.textContent = ''; console.error(err); return; }
   const r = Liquidacion.resumirNovedades(lista);
-  if (!r.cantidad) { aviso.textContent = avisarSiNoHay ? 'No hay novedades cargadas en el calendario para este mes.' : ''; return; }
+  if (!r.cantidad) {
+    aviso.textContent = r.sin_confirmar_empleador
+      ? `⚠ Hay ${r.sin_confirmar_empleador} novedad(es) que cargó el empleado y todavía no confirmaste en su ficha.`
+      : (avisarSiNoHay ? 'No hay novedades cargadas en el calendario para este mes.' : '');
+    return;
+  }
   formLiq.elements.faltas_dias.value = r.faltas_dias || '';
   formLiq.elements.horas_extra_50.value = r.horas_extra_50 || '';
   formLiq.elements.horas_extra_100.value = r.horas_extra_100 || '';
   formLiq.elements.horas_feriado.value = r.horas_feriado || '';
   aviso.textContent = `✓ Se cargaron ${r.cantidad} novedad${r.cantidad === 1 ? '' : 'es'} del calendario` +
-    (r.sin_confirmar_empleado ? ` (${r.sin_confirmar_empleado} sin confirmar por el empleado)` : '') + '.';
+    (r.sin_confirmar_empleado ? ` (${r.sin_confirmar_empleado} sin confirmar por el empleado)` : '') + '.' +
+    (r.sin_confirmar_empleador ? ` ⚠ Hay ${r.sin_confirmar_empleador} que cargó el empleado y todavía no confirmaste: no se incluyeron.` : '');
   recalcular();
 }
 el('btnTraerNovedades').addEventListener('click', () => traerNovedades(true));
@@ -1285,6 +1314,9 @@ async function cargarPerfil() {
   if (error) { mostrarEstado(estado, 'No se pudieron cargar tus datos. Revisá la conexión.', true); console.error(error); }
   llenarForm(formPerfil, data);
   actualizarBloqueTrabajo();
+  el('estadoUbicacion').textContent = data && data.trabajo_lat
+    ? '✓ Ubicación del lugar de trabajo guardada. Podés volver a guardarla si cambió.'
+    : 'Hacelo estando en la casa. Sirve para comparar dónde marca el presente tu personal.';
 }
 
 formPerfil.addEventListener('submit', async (ev) => {
@@ -1461,8 +1493,8 @@ function mostrarApp(sesion) {
   el('pantallaApp').hidden = false;
   if (sesion.user.id !== usuarioActual) {
     usuarioActual = sesion.user.id;
-    irA('vistaLista');
     window.chequearAdmin?.();
+    if (window.iniciarRol) window.iniciarRol(); else irA('vistaLista');
   }
 }
 
@@ -1481,7 +1513,11 @@ db.auth.onAuthStateChange((evento, sesion) => {
     if (recuperando && sesion) { mostrarLogin('vistaNuevaClave'); return; }
     if (sesion) { mostrarApp(sesion); return; }
     usuarioActual = null;
-    if (evento === 'INITIAL_SESSION') mostrarLogin('vistaEntrar', avisoInicial, !!avisoInicial);
+    if (evento === 'INITIAL_SESSION') {
+      if (window.invitacionPendiente && !avisoInicial) {
+        mostrarLogin('vistaCrear', 'Te invitaron a CasaEnRegla: creá tu cuenta (o tocá "Ya tengo cuenta" si ya tenés una) y después confirmá con tu DNI.');
+      } else mostrarLogin('vistaEntrar', avisoInicial, !!avisoInicial);
+    }
     else if (el('pantallaLogin').hidden) mostrarLogin('vistaEntrar');
   }, 0);
 });

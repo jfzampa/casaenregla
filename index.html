@@ -62,7 +62,7 @@
         </label>
         <label class="opcion chico">
           <input type="checkbox" name="acepto" required>
-          Acepto que CasaEnRegla guarde mis datos y los de mi personal para usar la app. Puedo pedir verlos, corregirlos o borrarlos en cualquier momento (Ley 25.326).
+          Acepto que CasaEnRegla guarde mis datos (y los de mi personal, si soy empleador) para usar la app. Puedo pedir verlos, corregirlos o borrarlos en cualquier momento (Ley 25.326).
         </label>
         <button type="submit" class="boton boton-principal">Crear cuenta</button>
         <p class="estado" role="status"></p>
@@ -105,8 +105,9 @@
        ===================================================== -->
   <main id="pantallaApp" hidden>
     <nav class="pestanias">
-      <button type="button" data-vista="vistaLista" class="activa">Empleados</button>
-      <button type="button" data-vista="vistaPerfil">Mis datos</button>
+      <button type="button" data-vista="vistaLista" id="tabEmpleados" class="activa">Empleados</button>
+      <button type="button" data-vista="vistaTrabajo" id="tabTrabajo" hidden>Mi trabajo</button>
+      <button type="button" data-vista="vistaPerfil" id="tabPerfil">Mis datos</button>
       <button type="button" data-vista="vistaCuenta">Mi cuenta</button>
       <button type="button" data-vista="vistaAdmin" id="tabAdmin" hidden>Admin</button>
     </nav>
@@ -136,6 +137,7 @@
         <button type="button" id="btnFichaLiquidar" class="boton boton-principal">💰 Liquidar un mes</button>
         <button type="button" id="btnFichaEditar" class="boton boton-secundario borde">✏️ Editar datos</button>
       </div>
+      <div id="vinculoFicha" class="vinculo"></div>
 
       <section class="tarjeta">
         <div class="titulo-con-select">
@@ -525,6 +527,8 @@
 
         <section class="tarjeta">
           <h3>Lugar donde trabaja el personal</h3>
+          <button type="button" id="btnUbicacionTrabajo" class="boton boton-secundario borde">📍 Guardar mi ubicación actual como lugar de trabajo</button>
+          <p class="ayuda" id="estadoUbicacion">Hacelo estando en la casa. Sirve para comparar dónde marca el presente tu personal.</p>
           <label class="opcion"><input type="checkbox" name="trabajo_mismo_domicilio" checked> Es el mismo que mi domicilio</label>
           <div id="bloqueTrabajo" hidden>
             <div class="fila">
@@ -556,6 +560,70 @@
         <button type="submit" class="boton boton-principal">Guardar mis datos</button>
         <p class="estado estado-guardar" role="status"></p>
       </form>
+    </div>
+
+    <!-- ===== Aceptar invitación (empleado) ===== -->
+    <div id="vistaInvitacion" class="vista" hidden>
+      <h2>Invitación</h2>
+      <section class="tarjeta">
+        <p>Tu empleador te invitó a CasaEnRegla para ver tus recibos, marcar tu presentismo y avisar tus ausencias.</p>
+        <form id="formInvitacion" novalidate>
+          <label>Tu DNI (para confirmar que sos vos) <input name="dni" inputmode="numeric" maxlength="8" autocomplete="off"></label>
+          <button type="submit" class="boton boton-principal">Vincular mi cuenta</button>
+          <p class="estado" role="status"></p>
+        </form>
+        <button type="button" id="btnIgnorarInvitacion" class="link">Ahora no</button>
+      </section>
+    </div>
+
+    <!-- ===== Mi trabajo (portal del empleado) ===== -->
+    <div id="vistaTrabajo" class="vista" hidden>
+      <h2 id="tituloTrabajo">Mi trabajo</h2>
+      <label id="envoltorioEmpleo" hidden>Empleo <select id="selEmpleo"></select></label>
+      <p class="info-liq" id="datosTrabajo"></p>
+
+      <section class="tarjeta">
+        <h3>Hoy</h3>
+        <button type="button" id="btnPresente" class="boton boton-principal">📍 Marcar presente</button>
+        <p class="estado" id="estadoPresente" role="status"></p>
+        <p class="ayuda">Al marcar se guarda la hora y tu ubicación de ese momento, solo para registrar que estás en tu trabajo. No se sigue tu ubicación.</p>
+      </section>
+
+      <section class="tarjeta">
+        <h3>Avisar una ausencia o novedad</h3>
+        <form id="formNovEmpleado" novalidate>
+          <label>Fecha <input name="fecha" type="date" required></label>
+          <label>Novedad
+            <select name="tipo">
+              <option value="falta_justificada">Falté o voy a faltar (con justificativo)</option>
+              <option value="falta_injustificada">Falté o voy a faltar (sin justificativo)</option>
+              <option value="horas_extra_50">Hice horas extra (día común)</option>
+              <option value="horas_extra_100">Hice horas extra (sábado desde las 13, domingo o feriado)</option>
+              <option value="feriado_trabajado">Trabajé un feriado</option>
+              <option value="nota">Mensaje / nota</option>
+            </select>
+          </label>
+          <label class="solo-horas">Horas <input name="horas" type="number" min="0.5" step="0.5" inputmode="decimal"></label>
+          <label>Detalle <input name="descripcion" autocomplete="off" placeholder="Ej.: turno médico"></label>
+          <label class="solo-archivo">Justificativo (foto o PDF) <input type="file" name="archivo" accept="application/pdf,image/*"></label>
+          <button type="submit" class="boton boton-principal">Enviar a mi empleador</button>
+          <p class="estado" role="status"></p>
+        </form>
+      </section>
+
+      <section class="tarjeta">
+        <div class="titulo-con-select">
+          <h3>Novedades del mes</h3>
+          <input type="month" id="mesTrabajo" aria-label="Mes">
+        </div>
+        <ul class="lista-novedades" id="listaNovTrabajo"></ul>
+      </section>
+
+      <section class="tarjeta">
+        <h3>Mis recibos</h3>
+        <div id="listaRecibos"></div>
+        <p class="ayuda">El recibo oficial está en ARCA: Clave Fiscal → Personal de Casas Particulares → Detalle del Trabajo → Recibos de Sueldo.</p>
+      </section>
     </div>
 
     <!-- ===== Administración (solo el dueño) ===== -->
@@ -711,5 +779,6 @@
   <script src="liquidacion.js"></script>
   <script src="app.js"></script>
   <script src="admin.js"></script>
+  <script src="empleado.js"></script>
 </body>
 </html>

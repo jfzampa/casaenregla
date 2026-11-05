@@ -307,9 +307,12 @@
 
   // ===== Novedades del calendario → novedades de la liquidación =====
   function resumirNovedades(lista) {
-    const r = { faltas_dias: 0, horas_extra_50: 0, horas_extra_100: 0, horas_feriado: 0, cantidad: 0, sin_confirmar_empleado: 0 };
+    const r = { faltas_dias: 0, horas_extra_50: 0, horas_extra_100: 0, horas_feriado: 0, cantidad: 0, sin_confirmar_empleado: 0, sin_confirmar_empleador: 0 };
     for (const n of lista || []) {
       const h = Number(n.horas) || 0;
+      const cuenta = ['falta_injustificada', 'horas_extra_50', 'horas_extra_100', 'feriado_trabajado'].includes(n.tipo);
+      // lo que cargó el empleado solo cuenta cuando el empleador lo confirma
+      if (cuenta && n.confirmado_empleador === false) { r.sin_confirmar_empleador++; continue; }
       if (n.tipo === 'falta_injustificada') r.faltas_dias += 1;
       else if (n.tipo === 'horas_extra_50') r.horas_extra_50 += h;
       else if (n.tipo === 'horas_extra_100') r.horas_extra_100 += h;

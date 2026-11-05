@@ -162,6 +162,15 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   Al liquidar un mes nuevo se cargan solas (`Liquidacion.resumirNovedades`); botón "Traer las novedades del calendario" para actualizar.
   Cada novedad guarda `cargado_por` y `confirmado_empleador/empleado` → base del presentismo con confirmación de ambas partes (portal).
   La carga manual del empleador queda siempre (por si el empleado no tiene o no puede usar el celular).
+- Portal del empleado parte 1 ✔ (`supabase/17_portal_empleado.sql`, `empleado.js`): el empleador invita desde la ficha (WhatsApp con link
+  `?invitacion=código`, vence 14 días); el empleado crea su cuenta y confirma con su DNI (`aceptar_invitacion`) → `empleados.usuario_id`.
+  Pestaña "Mi trabajo": marcar presente con ubicación (solo al marcar; `marcar_presente` calcula la distancia al lugar de trabajo que el
+  empleador guarda en Mis datos), avisar ausencias/extras con justificativo (quedan pendientes de confirmar por el empleador), responder
+  conforme/no conforme a lo que cargó el empleador, y ver sus liquidaciones. El empleado solo usa funciones rpc (nunca lee tablas).
+  Si solo es empleado, se ocultan Empleados y Mis datos. Lo cargado por el empleado entra en la liquidación solo si el empleador lo confirma.
+  ⚠ Para PROBAR con cuentas de empleados: desactivar "Confirm email" en Supabase (el envío de mails gratis solo llega al dueño);
+  volver a activarlo en la fase final junto con el SMTP propio.
+- Portal del empleado parte 2 (pendiente): acuerdos y comunicaciones con firma electrónica.
 - No incluido en la liquidación final (a pedido se agrega): multas por falta de registración (art. 50), SAC s/ vacaciones no gozadas.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae

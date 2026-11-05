@@ -253,6 +253,20 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .lista-novedades li small { display: block; color: var(--gris); }
 .lista-novedades li .borrar { background: none; border: none; color: var(--error); font-size: .8rem; text-decoration: underline; cursor: pointer; padding: 0; }
 
+/* ----- Portal del empleado ----- */
+.nov-presente { background: var(--verde); }
+.vinculo { font-size: .88rem; margin: -6px 0 14px; color: var(--gris); }
+.vinculo .boton { margin-top: 0; }
+.recibo { border: 1px solid #eef0f2; border-radius: 10px; padding: 0 12px; margin-bottom: 8px; }
+.recibo summary { cursor: pointer; padding: 10px 0; display: flex; justify-content: space-between; gap: 8px; list-style: none; }
+.recibo summary::-webkit-details-marker { display: none; }
+.recibo summary b { color: var(--azul); }
+.recibo[open] summary { border-bottom: 1px solid #eef0f2; }
+.recibo .tabla-liq { margin: 6px 0 10px; }
+.botones-respuesta { display: flex; gap: 6px; margin-top: 6px; }
+.botones-respuesta button { border: 1px solid var(--borde); background: #fff; border-radius: 8px; padding: 5px 10px; font: inherit; font-size: .82rem; cursor: pointer; }
+.botones-respuesta button.si { border-color: var(--verde); color: var(--verde-oscuro); }
+
 /* ----- Liquidación ----- */
 .otro { border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
 .otro .fila { align-items: flex-end; }
