@@ -124,4 +124,25 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .usuario { text-align: right; font-size: .85rem; color: var(--gris); }
 .link { background: none; border: none; color: var(--azul); font-size: .85rem; text-decoration: underline; cursor: pointer; padding: 0 0 0 6px; }
 
+.volver { padding: 0; margin: 4px 0 4px; font-size: .95rem; }
+
+.item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--tarjeta);
+  border: none;
+  border-left: 5px solid var(--verde);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  font: inherit;
+  color: var(--texto);
+  cursor: pointer;
+}
+.item b { display: block; font-size: 1.05rem; color: var(--azul); }
+.item span { font-size: .85rem; color: var(--gris); }
+.vacio { text-align: center; color: var(--gris); padding: 24px 8px; }
+
 .pie { text-align: center; font-size: .75rem; color: var(--gris); padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }

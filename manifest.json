@@ -1,7 +1,7 @@
 {
   "name": "CasaEnRegla",
   "short_name": "CasaEnRegla",
-  "description": "Todo en orden con tu empleada, sin vueltas.",
+  "description": "Todo en orden con tu empleado, sin vueltas.",
   "lang": "es-AR",
   "start_url": "./",
   "scope": "./",

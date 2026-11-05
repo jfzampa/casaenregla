@@ -25,6 +25,7 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Cobro futuro: suscripción mensual baja con Mercado Pago.
 
 ## Decisiones tomadas
+- **Lenguaje genérico**: en la app se dice "empleado/empleados" (no "empleada"). Tabla: `empleados`.
 - **Datos personales**: se toman escaneando el **código de barras del DNI** (apellido, nombre, sexo, DNI, fecha de nacimiento).
   **No se guarda la foto del DNI**, solo los datos.
 - Se cargan a mano (con listas para elegir): CUIL (se puede calcular con DNI + sexo y confirmar), domicilio,
@@ -39,24 +40,27 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 3. Empezar a cobrar.
 
 ## Primer paso a hacer
-Armar la pantalla **"Nueva empleada"**:
+(Hecho) Armar la pantalla **"Nuevo empleado"**:
 1. Botón "Escanear DNI" → cámara → completa datos personales.
 2. Datos laborales con listas para elegir.
 3. Botón "Guardar" en Supabase.
 
 ## Estado actual (actualizado 2026-11-04)
-- Hecho: pantalla "Nueva empleada" (HTML/JS simple, sin build) con escaneo DNI (ZXing, PDF417), cálculo de CUIL,
-  validaciones, login email+contraseña y guardado en Supabase (proyecto propio de CasaEnRegla, tabla `empleadas` con RLS).
+- Hecho: pantalla "Nuevo empleado" (HTML/JS simple, sin build) con escaneo DNI (ZXing, PDF417), cálculo de CUIL,
+  validaciones, login email+contraseña y guardado en Supabase (proyecto propio de CasaEnRegla, tabla `empleados` con RLS).
   Probado en la PC: guarda bien en la tabla.
 - SQL de la base en `supabase/` (numerados). Conexión en `config.js`.
 - Usuario de prueba creado a mano en Supabase (Authentication > Users). Todavía no hay pantalla de registro.
-- Siguiente: publicar en GitHub Pages y probar en el iPhone (instalar desde Safari + escanear DNI real).
-- Pendiente: ícono PNG para iPhone (hoy es SVG), lista de empleadas cargadas, editar empleada.
+- Publicada en GitHub Pages: https://jfzampa.github.io/casaenregla/ (repo jfzampa/casaenregla, rama main).
+  Probada en el iPhone: se instala y el escaneo del DNI funciona.
+- El código de barras del DNI NO trae domicilio (está solo impreso al dorso): el domicilio se carga a mano.
+- Hecho también: lista "Mis empleados" y edición.
+- Pendiente: ícono PNG para iPhone (hoy es SVG).
 
 ## Marca
 - Nombre: **CasaEnRegla**
-- Idea central: "todo en orden con tu empleada, sin vueltas".
+- Idea central: "todo en orden con tu empleado, sin vueltas".
 - Colores sugeridos: verde (en regla, confianza) + azul oscuro (seriedad). Evitar el celeste/azul institucional de ARCA.
 - Logo sugerido: una casita con un tilde ✓ adentro o en el techo.
-- Slogans posibles: "Tu empleada, en regla." / "Sueldo, recibo y avisos, sin vueltas."
+- Slogans posibles: "Tu empleado, en regla." / "Sueldo, recibo y avisos, sin vueltas."
 - Pendiente: buscar el nombre en INPI, registrar dominio en NIC Argentina, reservar @casaenregla en Instagram.

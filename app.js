@@ -1,6 +1,6 @@
-// ===== CasaEnRegla — pantalla "Nueva empleada" =====
+// ===== CasaEnRegla — pantalla "Nuevo empleado" =====
 
-const form = document.getElementById('formEmpleada');
+const form = document.getElementById('formEmpleado');
 const $ = (name) => form.elements[name];
 
 // ---------- Provincias ----------
@@ -57,7 +57,7 @@ document.getElementById('btnCalcularCuil').addEventListener('click', () => {
     return;
   }
   $('cuil').value = calcularCuil(dni, sexo);
-  avisoCuil.textContent = 'CUIL calculado. Confirmalo con el de la empleada (puede ser distinto en casos raros).';
+  avisoCuil.textContent = 'CUIL calculado. Confirmalo con el del empleado (puede ser distinto en casos raros).';
 });
 $('cuil').addEventListener('blur', () => {
   if ($('cuil').value) $('cuil').value = formatearCuil($('cuil').value);
@@ -94,7 +94,7 @@ function completarConDni(d) {
   $('dni').value = d.dni.replace(/\D/g, '');
   $('fecha_nacimiento').value = fechaAIso(d.nacimiento);
   $('cuil').value = calcularCuil($('dni').value, d.sexo) || '';
-  avisoCuil.textContent = 'CUIL calculado a partir del DNI. Confirmalo con el de la empleada.';
+  avisoCuil.textContent = 'CUIL calculado a partir del DNI. Confirmalo con el del empleado.';
 }
 
 const btnEscanear = document.getElementById('btnEscanear');
@@ -196,10 +196,12 @@ function validar(e) {
   return errores;
 }
 
-async function guardarEmpleada(empleada) {
-  const { error } = await db.from('empleadas').insert(empleada);
+async function guardarEmpleado(empleado) {
+  const { error } = editandoId
+    ? await db.from('empleados').update(empleado).eq('id', editandoId)
+    : await db.from('empleados').insert(empleado);
   if (error) {
-    if (error.code === '23505') throw new Error('Ya tenés cargada una empleada con ese DNI.');
+    if (error.code === '23505') throw new Error('Ya tenés cargado un empleado con ese DNI.');
     throw error;
   }
 }
@@ -207,23 +209,96 @@ async function guardarEmpleada(empleada) {
 const estadoGuardar = document.getElementById('estadoGuardar');
 form.addEventListener('submit', async (ev) => {
   ev.preventDefault();
-  const empleada = leerFormulario();
-  const errores = validar(empleada);
+  const empleado = leerFormulario();
+  const errores = validar(empleado);
   document.getElementById('errores').textContent = errores.join('\n');
   if (errores.length) {
     mostrarEstado(estadoGuardar, '');
     return;
   }
+  const btnGuardar = document.getElementById('btnGuardar');
+  btnGuardar.disabled = true;
   try {
-    await guardarEmpleada(empleada);
-    mostrarEstado(estadoGuardar, `✓ ${empleada.nombre} ${empleada.apellido} guardada.`);
-    form.reset();
-    avisoCuil.textContent = '';
+    await guardarEmpleado(empleado);
+    const msj = `✓ ${empleado.nombre} ${empleado.apellido} ${editandoId ? 'actualizado' : 'guardado'}.`;
+    await mostrarLista();
+    mostrarEstado(estadoLista, msj);
   } catch (err) {
     mostrarEstado(estadoGuardar, err.message?.startsWith('Ya tenés') ? err.message : 'No se pudo guardar. Revisá la conexión y probá de nuevo.', true);
     console.error(err);
+  } finally {
+    btnGuardar.disabled = false;
   }
 });
+
+// ---------- Lista de empleados y edición ----------
+const CATEGORIAS = {
+  1: 'Supervisor/a', 2: 'Tareas específicas', 3: 'Caseros',
+  4: 'Asistencia y cuidado', 5: 'Tareas generales',
+};
+const vistaLista = document.getElementById('vistaLista');
+const vistaForm = document.getElementById('vistaForm');
+const listaEl = document.getElementById('listaEmpleados');
+const estadoLista = document.getElementById('estadoLista');
+let editandoId = null;
+let empleados = [];
+
+const escapar = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const fechaCorta = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
+
+async function mostrarLista() {
+  detenerEscaneo();
+  vistaForm.hidden = true;
+  vistaLista.hidden = false;
+  mostrarEstado(estadoLista, 'Cargando…');
+  window.scrollTo({ top: 0 });
+
+  const { data, error } = await db.from('empleados').select('*').order('apellido').order('nombre');
+  if (error) {
+    mostrarEstado(estadoLista, 'No se pudo cargar la lista. Revisá la conexión.', true);
+    console.error(error);
+    return;
+  }
+  mostrarEstado(estadoLista, '');
+  empleados = data;
+  listaEl.innerHTML = data.length
+    ? data.map((e) => `
+        <button type="button" class="item" data-id="${e.id}">
+          <b>${escapar(e.apellido)}, ${escapar(e.nombre)}</b>
+          <span>${e.categoria}ª ${CATEGORIAS[e.categoria] || ''} · ${e.modalidad === 'sin_retiro' ? 'Sin retiro' : 'Con retiro'} · desde ${fechaCorta(e.fecha_ingreso)}</span>
+        </button>`).join('')
+    : '<p class="vacio">Todavía no cargaste ningún empleado.</p>';
+}
+
+function abrirFormulario(empleado = null) {
+  editandoId = empleado?.id || null;
+  form.reset();
+  form.querySelectorAll('.invalido').forEach((el) => el.classList.remove('invalido'));
+  ['errores', 'estadoGuardar', 'estadoScan'].forEach((id) => { document.getElementById(id).textContent = ''; });
+  avisoCuil.textContent = '';
+
+  if (empleado) {
+    for (const [campo, valor] of Object.entries(empleado)) {
+      const el = form.elements[campo];
+      if (!el || valor == null || campo === 'dias') continue;
+      el.value = campo === 'cuil' ? formatearCuil(valor) : valor;
+    }
+    form.querySelectorAll('input[name="dias"]').forEach((c) => { c.checked = (empleado.dias || []).includes(c.value); });
+  }
+
+  document.getElementById('tituloForm').textContent = empleado ? `${empleado.nombre} ${empleado.apellido}` : 'Nuevo empleado';
+  document.getElementById('btnGuardar').textContent = empleado ? 'Guardar cambios' : 'Guardar';
+  vistaLista.hidden = true;
+  vistaForm.hidden = false;
+  window.scrollTo({ top: 0 });
+}
+
+listaEl.addEventListener('click', (ev) => {
+  const item = ev.target.closest('.item');
+  if (item) abrirFormulario(empleados.find((e) => e.id === item.dataset.id));
+});
+document.getElementById('btnNueva').addEventListener('click', () => abrirFormulario());
+document.getElementById('btnVolver').addEventListener('click', () => mostrarLista());
 
 // ---------- Login (Supabase) ----------
 const db = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
@@ -231,14 +306,18 @@ const pantallaLogin = document.getElementById('pantallaLogin');
 const pantallaApp = document.getElementById('pantallaApp');
 const estadoLogin = document.getElementById('estadoLogin');
 
+let usuarioActual = null;
 function mostrarPantalla(sesion) {
   pantallaLogin.hidden = !!sesion;
   pantallaApp.hidden = !sesion;
   document.getElementById('emailUsuario').textContent = sesion?.user?.email || '';
+  const nuevoUsuario = sesion?.user?.id || null;
+  if (nuevoUsuario && nuevoUsuario !== usuarioActual) mostrarLista();
+  usuarioActual = nuevoUsuario;
 }
 
-db.auth.getSession().then(({ data }) => mostrarPantalla(data.session));
-db.auth.onAuthStateChange((_evento, sesion) => mostrarPantalla(sesion));
+// setTimeout: Supabase recomienda no hacer consultas dentro de este aviso directamente
+db.auth.onAuthStateChange((_evento, sesion) => setTimeout(() => mostrarPantalla(sesion), 0));
 
 document.getElementById('formLogin').addEventListener('submit', async (ev) => {
   ev.preventDefault();

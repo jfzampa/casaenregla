@@ -18,7 +18,7 @@
     <img src="icon.svg" alt="" class="logo">
     <div>
       <h1>CasaEnRegla</h1>
-      <p class="slogan">Tu empleada, en regla.</p>
+      <p class="slogan">Tu empleado, en regla.</p>
     </div>
   </header>
 
@@ -39,7 +39,19 @@
 
   <main id="pantallaApp" hidden>
     <div class="usuario"><span id="emailUsuario"></span> <button type="button" id="btnSalir" class="link">Salir</button></div>
-    <h2>Nueva empleada</h2>
+
+    <!-- ===== Lista de empleados ===== -->
+    <div id="vistaLista">
+      <h2>Mis empleados</h2>
+      <p id="estadoLista" class="estado" role="status"></p>
+      <div id="listaEmpleados"></div>
+      <button type="button" id="btnNueva" class="boton boton-principal">+ Nuevo empleado</button>
+    </div>
+
+    <!-- ===== Formulario (nueva o editar) ===== -->
+    <div id="vistaForm" hidden>
+    <button type="button" id="btnVolver" class="link volver">← Volver a mis empleados</button>
+    <h2 id="tituloForm">Nuevo empleado</h2>
 
     <!-- ===== Escaneo de DNI ===== -->
     <section class="tarjeta">
@@ -53,7 +65,7 @@
       <p id="estadoScan" class="estado" role="status"></p>
     </section>
 
-    <form id="formEmpleada" novalidate>
+    <form id="formEmpleado" novalidate>
       <!-- ===== Datos personales ===== -->
       <section class="tarjeta">
         <h3>Datos personales</h3>
@@ -163,9 +175,10 @@
       </section>
 
       <p id="errores" class="errores" role="alert"></p>
-      <button type="submit" class="boton boton-principal">Guardar</button>
+      <button type="submit" id="btnGuardar" class="boton boton-principal">Guardar</button>
       <p id="estadoGuardar" class="estado" role="status"></p>
     </form>
+    </div>
   </main>
 
   <footer class="pie">CasaEnRegla es una app privada. No pertenece a ARCA ni a ningún organismo público.</footer>
