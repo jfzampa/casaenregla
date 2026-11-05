@@ -206,6 +206,137 @@
     return { semestre, inicio, fin, dias, diasSemestre, completo, importe, detalle };
   }
 
+  // ===== Días hábiles y avisos =====
+  const isoDe = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const fechaDe = (iso) => { const [a, m, d] = iso.split('-').map(Number); return new Date(a, m - 1, d); };
+  const esHabil = (iso, feriados) => { const d = fechaDe(iso).getDay(); return d !== 0 && d !== 6 && !feriados.has(iso); };
+  const sumarDias = (iso, n) => { const d = fechaDe(iso); d.setDate(d.getDate() + n); return isoDe(d); };
+  const mesSiguiente = (p) => { const [a, m] = p.split('-').map(Number); return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`; };
+  const mesAnterior = (p) => { const [a, m] = p.split('-').map(Number); return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`; };
+  const ultimoDia = (p) => { const [a, m] = p.split('-').map(Number); return `${p}-${String(new Date(a, m, 0).getDate()).padStart(2, '0')}`; };
+
+  // n-ésimo día hábil de un mes "aaaa-mm"
+  function diaHabil(mes, n, feriados) {
+    let iso = `${mes}-01`, cuenta = 0;
+    for (;;) {
+      if (esHabil(iso, feriados)) cuenta++;
+      if (cuenta === n) return iso;
+      iso = sumarDias(iso, 1);
+    }
+  }
+  // el mismo día si es hábil, si no el siguiente hábil
+  function habilDesde(iso, feriados) { while (!esHabil(iso, feriados)) iso = sumarDias(iso, 1); return iso; }
+
+  // Días de vacaciones según antigüedad al 31/12 del año (art. 29 Ley 26.844).
+  // Con menos de 6 meses trabajados en el año: 1 día cada 20 días trabajados.
+  function diasVacaciones(fechaIngreso, anio) {
+    if (!fechaIngreso) return null;
+    const fin = `${anio}-12-31`;
+    const desde = fechaIngreso > `${anio}-01-01` ? fechaIngreso : `${anio}-01-01`;
+    if (desde > fin) return null;
+    const diasTrabajados = diasEntre(desde, fin);
+    if (fechaIngreso > `${anio}-06-30`) return { dias: Math.floor(diasTrabajados / 20), proporcional: true };
+    const anios = aniosAntiguedad(fechaIngreso, `${anio}-12`, '0000-01-01');
+    return { dias: anios < 5 ? 14 : anios < 10 ? 21 : anios < 20 ? 28 : 35, proporcional: false };
+  }
+
+  /**
+   * Genera la lista de avisos para la pantalla de inicio.
+   * p: { hoy: 'aaaa-mm-dd', empleados, liquidaciones (de los últimos meses), feriados: Set,
+   *      param: { vep_dia_vencimiento, periodo_prueba_meses }, escalaUltima: 'aaaa-mm-dd' | null,
+   *      retroactivas: [{ empleado_id, periodo }] }
+   * Cada aviso: { nivel: 'urgente'|'atencion'|'info', texto, empleado_id?, accion?: { tipo, periodo } }
+   */
+  function generarAvisos({ hoy, empleados, liquidaciones = [], feriados = new Set(), param = {}, escalaUltima = null, retroactivas = [] }) {
+    const avisos = [];
+    const mesHoy = hoy.slice(0, 7);
+    const ant = mesAnterior(mesHoy);
+    const corta = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+    const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const conDia = (iso) => `el ${DIAS[fechaDe(iso).getDay()]} ${corta(iso)}`;
+    const nomMes = (p) => MESES[Number(p.slice(5, 7)) - 1];
+
+    const vencSueldo = diaHabil(mesHoy, 4, feriados);                       // art. 19: 4° día hábil
+    const vencVep = habilDesde(`${mesHoy}-${String(param.vep_dia_vencimiento || 10).padStart(2, '0')}`, feriados);
+
+    for (const e of empleados) {
+      const quien = e.nombre;
+      const liqAnt = liquidaciones.find((l) => l.empleado_id === e.id && l.periodo.slice(0, 7) === ant);
+      const liqHoy = liquidaciones.find((l) => l.empleado_id === e.id && l.periodo.slice(0, 7) === mesHoy);
+      const trabajoMesAnterior = !e.fecha_ingreso || e.fecha_ingreso <= ultimoDia(ant);
+
+      // ---- Mes anterior: liquidar, pagar, VEP, recibo ----
+      if (trabajoMesAnterior) {
+        const vencido = hoy > vencSueldo;
+        if (!liqAnt) {
+          avisos.push({ nivel: vencido ? 'urgente' : 'atencion', empleado_id: e.id, accion: { tipo: 'liquidar', periodo: ant },
+            texto: `Falta liquidar el sueldo de ${nomMes(ant)} de ${quien}. ${vencido ? 'Venció' : 'Vence'} ${conDia(vencSueldo)} (4° día hábil).` });
+        } else {
+          if (liqAnt.estado !== 'pagada') {
+            avisos.push({ nivel: vencido ? 'urgente' : 'atencion', empleado_id: e.id, accion: { tipo: 'cierre', periodo: ant },
+              texto: `Pagarle a ${quien} el sueldo de ${nomMes(ant)}. ${vencido ? 'Venció' : 'Vence'} ${conDia(vencSueldo)}.` });
+          }
+          if (!liqAnt.vep_fecha) {
+            avisos.push({ nivel: hoy > vencVep ? 'urgente' : 'atencion', empleado_id: e.id, accion: { tipo: 'cierre', periodo: ant },
+              texto: `Pagar el VEP de ${nomMes(ant)} de ${quien} en ARCA. Vence aprox. ${conDia(vencVep)} (confirmalo en ARCA).` });
+          }
+          if (!liqAnt.recibo_arca) {
+            avisos.push({ nivel: 'atencion', empleado_id: e.id, accion: { tipo: 'cierre', periodo: ant },
+              texto: `Emitir en ARCA el recibo de ${nomMes(ant)} de ${quien}.` });
+          }
+          if (['06', '12'].includes(ant.slice(5, 7)) && !Number(liqAnt.detalle && liqAnt.detalle.sac_importe)) {
+            avisos.push({ nivel: 'atencion', empleado_id: e.id, accion: { tipo: 'liquidar', periodo: ant },
+              texto: `La liquidación de ${nomMes(ant)} de ${quien} no incluye el aguinaldo.` });
+          }
+        }
+      }
+
+      // ---- Mes actual ----
+      if (['06', '12'].includes(mesHoy.slice(5, 7)) && !(liqHoy && Number(liqHoy.detalle && liqHoy.detalle.sac_importe))) {
+        avisos.push({ nivel: 'info', empleado_id: e.id, accion: { tipo: 'liquidar', periodo: mesHoy },
+          texto: `Este mes corresponde el aguinaldo de ${quien}: al liquidar ${nomMes(mesHoy)}, tildá "Incluir aguinaldo".` });
+      }
+      if (!liqHoy && hoy >= sumarDias(ultimoDia(mesHoy), -4)) {
+        avisos.push({ nivel: 'info', empleado_id: e.id, accion: { tipo: 'liquidar', periodo: mesHoy },
+          texto: `Se acerca el fin de mes: ya podés liquidar ${nomMes(mesHoy)} de ${quien}.` });
+      }
+
+      // ---- Vacaciones: se toman entre el 1/10 y el 30/4 ----
+      const m = Number(mesHoy.slice(5, 7));
+      if (m >= 9 && m <= 11) {
+        const v = diasVacaciones(e.fecha_ingreso, mesHoy.slice(0, 4));
+        if (v && v.dias > 0) avisos.push({ nivel: 'info', empleado_id: e.id,
+          texto: `Acordá las vacaciones de ${quien}: ${v.dias} días corridos${v.proporcional ? ' (proporcional: 1 día cada 20 trabajados)' : ''}, a tomar entre el 1/10 y el 30/4.` });
+      }
+
+      // ---- Fin del período de prueba ----
+      const meses = Number(param.periodo_prueba_meses) || 0;
+      if (meses && e.fecha_ingreso && e.fecha_ingreso >= '2026-03-06') {
+        const d = fechaDe(e.fecha_ingreso); d.setMonth(d.getMonth() + meses); d.setDate(d.getDate() - 1);
+        const fin = isoDe(d);
+        if (hoy <= fin && sumarDias(hoy, 30) >= fin) {
+          avisos.push({ nivel: 'atencion', empleado_id: e.id,
+            texto: `El período de prueba de ${quien} termina ${conDia(fin)}. Después, la relación queda firme.` });
+        }
+      }
+    }
+
+    // ---- Escalas ----
+    for (const r of retroactivas) {
+      const e = empleados.find((x) => x.id === r.empleado_id);
+      if (e) avisos.push({ nivel: 'atencion', empleado_id: e.id, accion: { tipo: 'liquidar', periodo: r.periodo },
+        texto: `Se publicó una escala nueva que afecta ${nomMes(r.periodo)} de ${e.nombre}: abrí la liquidación y guardala de nuevo para recalcular la diferencia.` });
+    }
+    if (escalaUltima && escalaUltima.slice(0, 7) === mesHoy) {
+      avisos.push({ nivel: 'info', texto: `Desde este mes rige una nueva escala salarial: las liquidaciones de ${nomMes(mesHoy)} ya la usan.` });
+    } else if (escalaUltima && escalaUltima.slice(0, 7) < mesHoy && Number(hoy.slice(8, 10)) >= 5) {
+      avisos.push({ nivel: 'info', texto: `La escala de ${nomMes(mesHoy)} todavía no está cargada: se usa la de ${nomMes(escalaUltima.slice(0, 7))} ${escalaUltima.slice(0, 4)}.` });
+    }
+
+    const orden = { urgente: 0, atencion: 1, info: 2 };
+    return avisos.sort((a, b) => orden[a.nivel] - orden[b.nivel]);
+  }
+
   // ===== Número a letras (pesos) — para el neto del recibo =====
   const U = ['', 'un', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve', 'diez', 'once', 'doce', 'trece',
     'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve', 'veinte', 'veintiún', 'veintidós', 'veintitrés',
@@ -437,7 +568,7 @@
   }
 
   const api = {
-    calcular, calcularSac, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
+    calcular, calcularSac, generarAvisos, diaHabil, habilDesde, diasVacaciones, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
     analizarReciboArca, analizarVep, claveConcepto, analizarAportesArca,
     analizarTextoEscala, controlarEscala,
   };

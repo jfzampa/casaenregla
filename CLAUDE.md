@@ -74,7 +74,7 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   Los controles marcan 5 de 69 vigencias históricas: 2013-09, 2020-05, 2024-12 (5ª sin retiro hora $3.413, probable tipeo de UPACP), 2025-01, 2026-10.
 - **Paso B — Robot**: Supabase Edge Function que descarga UPACP y el PDF de ARCA, los lee y guarda lo nuevo como
   **propuesta pendiente** (nunca directo a `escalas`). Corre solo 1 vez por día (pg_cron); el navegador no puede leer UPACP directo (CORS).
-- **Paso C — Al iniciar la app**: avisar si el mes actual no tiene escala/aportes publicados (se usa la última); y si se aprobó una escala
+- **Paso C — Al iniciar la app** ✔ HECHO (dentro de los avisos): avisar si el mes actual no tiene escala/aportes publicados (se usa la última); y si se aprobó una escala
   **retroactiva** que afecta liquidaciones ya guardadas, avisar "hay que recalcular" con la diferencia.
 - Regla: **ningún valor llega a los usuarios sin aprobación del dueño** (controles automáticos: 10 renglones, aumento razonable, 3ª = 4ª con retiro).
 
@@ -122,7 +122,14 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
 - Aguinaldo (SAC) ✔: en la liquidación de junio/diciembre, opción "Incluir aguinaldo". 50% de la mayor remuneración remunerativa
   del semestre (art. 26), proporcional por días desde el ingreso (`Liquidacion.calcularSac`). Propone la mayor entre los meses
   guardados del semestre (sin contar aguinaldos, `detalle.sac_importe`) y el mes actual; se puede escribir a mano.
-- Pendiente: vacaciones, avisos, liquidación final.
+- Avisos ✔ (`supabase/12_avisos.sql`, `Liquidacion.generarAvisos`): tarjeta en el inicio con prioridad (urgente/atención/info) y botón
+  para ir a liquidar o cerrar el mes. Reglas: liquidar/pagar el mes anterior (vence 4° día hábil, art. 19), VEP (día `vep_dia_vencimiento`
+  o hábil siguiente, aprox.), recibo ARCA sin emitir, aguinaldo en junio/diciembre, fin de mes, vacaciones (sep–nov: días según
+  antigüedad art. 29; proporcional 1/20 si ingresó en el 2° semestre), fin del período de prueba (6 meses, ingresos desde 06/03/2026),
+  escala retroactiva (liquidación hecha con una escala anterior a la vigente) y escala del mes no cargada.
+  Tabla `feriados` (admin, pestaña Feriados) para días hábiles; trasladables de 2026/2027 cargados por regla general: verificar.
+  Avisos por notificación/mail (fuera de la app): pendiente, requiere Edge Function + cron (junto con el paso B).
+- Pendiente: vacaciones (cálculo del pago), liquidación final, novedades día a día durante el mes.
 - Pendiente: ícono PNG para iPhone (hoy es SVG).
 - Pendiente antes de la etapa 2: registrar dominio y configurar SMTP propio en Supabase (ej. Resend/Brevo con el dominio), y recién ahí cargar las plantillas en español. El envío de mails que trae
   Supabase gratis solo manda a emails del equipo del proyecto y tiene pocos envíos por hora.

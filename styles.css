@@ -194,6 +194,19 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
   font: inherit; font-size: .85rem; font-weight: 600; cursor: pointer;
 }
 
+/* ----- Avisos en la pantalla de inicio ----- */
+.caja-avisos { background: var(--tarjeta); border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+.caja-avisos h3 { margin: 0 0 6px; }
+.caja-avisos ul { list-style: none; margin: 0; padding: 0; }
+.caja-avisos li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid #eef0f2; font-size: .9rem; }
+.caja-avisos li:first-child { border-top: none; }
+.caja-avisos li .icono { flex: none; width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; background: #8aa4c8; }
+.caja-avisos li.urgente .icono { background: var(--error); }
+.caja-avisos li.atencion .icono { background: #e0a100; }
+.caja-avisos li span.texto { flex: 1; }
+.caja-avisos li.urgente span.texto { font-weight: 600; }
+.caja-avisos li button { flex: none; border: 1px solid var(--borde); background: #fff; color: var(--azul); border-radius: 8px; padding: 4px 10px; font: inherit; font-size: .8rem; cursor: pointer; }
+
 /* ----- Ficha del empleado ----- */
 .acciones { display: flex; gap: 8px; margin: 4px 0 14px; }
 .acciones .boton { margin: 0; font-size: .95rem; padding: 12px 8px; }

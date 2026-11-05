@@ -244,7 +244,60 @@ async function cargarLista() {
           <button type="button" class="btn-liquidar" data-liquidar="${e.id}">💰<br>Liquidar</button>
         </div>`).join('')
     : '<p class="vacio">Todavía no cargaste ningún empleado.</p>';
+  cargarAvisos(data).catch((err) => console.error('avisos', err));
 }
+
+// ================= Avisos (pantalla de inicio) =================
+async function cargarAvisos(lista) {
+  const caja = el('cajaAvisos');
+  if (!lista.length) { caja.hidden = true; return; }
+  const hoy = hoyIso();
+  const mesHoy = hoy.slice(0, 7);
+  const [a, m] = mesHoy.split('-').map(Number);
+  const ant = m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, '0')}`;
+  const hasta = `${m >= 11 ? a + 1 : a}-${String(((m + 1) % 12) + 1).padStart(2, '0')}-01`;
+
+  const [liqs, fer, params, ultima] = await Promise.all([
+    db.from('liquidaciones').select('empleado_id, periodo, estado, vep_fecha, recibo_arca, detalle').gte('periodo', `${ant}-01`),
+    db.from('feriados').select('fecha').gte('fecha', `${ant}-01`).lt('fecha', hasta),
+    db.from('parametros').select('clave, valor, vigencia_desde').in('clave', ['vep_dia_vencimiento', 'periodo_prueba_meses'])
+      .lte('vigencia_desde', hoy).order('vigencia_desde', { ascending: false }),
+    db.from('escalas').select('vigencia_desde').order('vigencia_desde', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const liquidaciones = liqs.data || [];
+  const param = {};
+  for (const p of params.data || []) if (!(p.clave in param)) param[p.clave] = Number(p.valor);
+
+  // ¿Hay una escala más nueva que la que se usó en una liquidación reciente? (aumento retroactivo)
+  const retroactivas = [];
+  for (const l of liquidaciones) {
+    const usada = l.detalle && l.detalle.escala && l.detalle.escala.vigencia_desde;
+    const e = lista.find((x) => x.id === l.empleado_id);
+    if (!usada || !e) continue;
+    const vigente = await escalaVigente(e.categoria, e.modalidad, l.periodo).catch(() => null);
+    if (vigente && vigente.vigencia_desde > usada) retroactivas.push({ empleado_id: e.id, periodo: l.periodo.slice(0, 7) });
+  }
+
+  const avisos = Liquidacion.generarAvisos({
+    hoy, empleados: lista, liquidaciones, param, retroactivas,
+    feriados: new Set((fer.data || []).map((f) => f.fecha)),
+    escalaUltima: ultima.data ? ultima.data.vigencia_desde : null,
+  });
+  caja.hidden = !avisos.length;
+  el('listaAvisos').innerHTML = avisos.map((av, i) => `
+    <li class="${av.nivel}"><span class="icono"></span><span class="texto">${escapar(av.texto)}</span>
+    ${av.accion ? `<button type="button" data-aviso="${i}">${av.accion.tipo === 'cierre' ? 'Cerrar mes' : 'Liquidar'}</button>` : ''}</li>`).join('');
+  el('listaAvisos').onclick = (ev) => {
+    const b = ev.target.closest('[data-aviso]');
+    if (!b) return;
+    const av = avisos[Number(b.dataset.aviso)];
+    const e = lista.find((x) => x.id === av.empleado_id);
+    if (!e) return;
+    liqIrACierre = av.accion.tipo === 'cierre';
+    abrirLiquidacion(e, av.accion.periodo);
+  };
+}
+let liqIrACierre = false;
 
 function abrirEmpleado(empleado = null) {
   editandoId = empleado?.id || null;
@@ -589,6 +642,10 @@ async function cargarPeriodo() {
     mostrarEstado(estado, '');
   }
   recalcular();
+  if (liqIrACierre) {
+    liqIrACierre = false;
+    if (!formCierre.hidden) formCierre.scrollIntoView({ behavior: 'smooth' });
+  }
 }
 formLiq.elements.periodo.addEventListener('change', cargarPeriodo);
 formLiq.addEventListener('input', (ev) => {

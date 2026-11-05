@@ -117,6 +117,10 @@
         Completá <b>tus datos de empleador</b>: hacen falta para el recibo de sueldo.
         <button type="button" class="link" data-vista="vistaPerfil">Completar</button>
       </div>
+      <section id="cajaAvisos" class="caja-avisos" hidden>
+        <h3>Avisos</h3>
+        <ul id="listaAvisos"></ul>
+      </section>
       <h2>Mis empleados</h2>
       <p id="estadoLista" class="estado" role="status"></p>
       <div id="listaEmpleados"></div>
@@ -478,6 +482,7 @@
         <button type="button" data-admin="adminEscalas" class="activa">Escalas</button>
         <button type="button" data-admin="adminAportes">Aportes ARCA</button>
         <button type="button" data-admin="adminParametros">Parámetros</button>
+        <button type="button" data-admin="adminFeriados">Feriados</button>
       </nav>
 
       <!-- Escalas -->
@@ -530,6 +535,8 @@
               <option value="antiguedad_pct_anual">Antigüedad (% por año)</option>
               <option value="horas_mensualizado">Horas semanales para mensualizado</option>
               <option value="antiguedad_desde">Antigüedad se cuenta desde (aaaammdd)</option>
+              <option value="vep_dia_vencimiento">Día de vencimiento del VEP</option>
+              <option value="periodo_prueba_meses">Período de prueba (meses)</option>
             </select>
           </label>
           <div class="fila">
@@ -540,6 +547,20 @@
           <button type="submit" class="boton boton-principal">Guardar parámetro</button>
           <p class="estado" role="status"></p>
         </form>
+      </section>
+
+      <!-- Feriados -->
+      <section id="adminFeriados" class="tarjeta" hidden>
+        <p class="ayuda arriba">Se usan para calcular los días hábiles (vencimiento del sueldo y del VEP). Agregá los que decrete el Gobierno.</p>
+        <form id="formFeriado" novalidate>
+          <div class="fila">
+            <label>Fecha <input name="fecha" type="date" required></label>
+            <label class="ancho">Motivo <input name="descripcion" required autocomplete="off"></label>
+          </div>
+          <button type="submit" class="boton boton-principal">Agregar feriado</button>
+          <p class="estado" role="status"></p>
+        </form>
+        <table class="tabla-admin" id="tablaFeriados"></table>
       </section>
     </div>
 

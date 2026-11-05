@@ -25,9 +25,9 @@
   // ---------- Sub-pestañas ----------
   document.querySelectorAll('[data-admin]').forEach((b) => b.addEventListener('click', () => mostrarSub(b.dataset.admin)));
   function mostrarSub(id) {
-    ['adminEscalas', 'adminAportes', 'adminParametros'].forEach((s) => { el(s).hidden = s !== id; });
+    ['adminEscalas', 'adminAportes', 'adminParametros', 'adminFeriados'].forEach((s) => { el(s).hidden = s !== id; });
     document.querySelectorAll('[data-admin]').forEach((b) => b.classList.toggle('activa', b.dataset.admin === id));
-    ({ adminEscalas: cargarVigencias, adminAportes: cargarPeriodos, adminParametros: cargarParametros })[id]();
+    ({ adminEscalas: cargarVigencias, adminAportes: cargarPeriodos, adminParametros: cargarParametros, adminFeriados: cargarFeriados })[id]();
   }
   window.cargarAdmin = () => mostrarSub('adminEscalas');
 
@@ -270,6 +270,7 @@
   const NOMBRE_PARAM = {
     zona_desfavorable_pct: 'Zona desfavorable %', antiguedad_pct_anual: 'Antigüedad % por año',
     horas_mensualizado: 'Horas para mensualizado', antiguedad_desde: 'Antigüedad desde',
+    vep_dia_vencimiento: 'Día de vencimiento del VEP', periodo_prueba_meses: 'Período de prueba (meses)',
   };
 
   async function cargarParametros() {
@@ -302,5 +303,40 @@
     f.reset();
     mostrarEstado(estado, '✓ Guardado.');
     cargarParametros();
+  });
+
+  // =====================================================================
+  // FERIADOS
+  // =====================================================================
+  const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  async function cargarFeriados() {
+    const desde = `${new Date().getFullYear() - 1}-01-01`;
+    const { data, error } = await db.from('feriados').select('*').gte('fecha', desde).order('fecha');
+    if (error) { el('tablaFeriados').innerHTML = '<tr><td>No se pudieron cargar. ¿Corriste el SQL 12?</td></tr>'; console.error(error); return; }
+    el('tablaFeriados').innerHTML = `<tr><th>Fecha</th><th>Motivo</th><th></th></tr>` + data.map((f) => {
+      const [a, m, d] = f.fecha.split('-').map(Number);
+      return `<tr><td>${DIAS_SEM[new Date(a, m - 1, d).getDay()]} ${fechaCorta(f.fecha)}</td><td>${escapar(f.descripcion)}</td>
+        <td><button type="button" class="borrar" data-feriado="${f.fecha}">Borrar</button></td></tr>`;
+    }).join('');
+  }
+
+  el('tablaFeriados').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-feriado]');
+    if (!b || !confirm(`¿Borrar el feriado del ${fechaCorta(b.dataset.feriado)}?`)) return;
+    const { error } = await db.from('feriados').delete().eq('fecha', b.dataset.feriado);
+    if (error) { alert('No se pudo borrar.'); console.error(error); return; }
+    cargarFeriados();
+  });
+
+  el('formFeriado').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const f = e.target, estado = f.querySelector('.estado');
+    const fila = { fecha: f.elements.fecha.value, descripcion: f.elements.descripcion.value.trim() };
+    if (!fila.fecha || !fila.descripcion) { mostrarEstado(estado, 'Completá la fecha y el motivo.', true); return; }
+    const { error } = await db.from('feriados').upsert(fila, { onConflict: 'fecha' });
+    if (error) { mostrarEstado(estado, 'No se pudo guardar (¿tenés rol de admin?).', true); console.error(error); return; }
+    f.reset();
+    mostrarEstado(estado, '✓ Feriado agregado.');
+    cargarFeriados();
   });
 })();
