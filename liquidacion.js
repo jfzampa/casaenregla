@@ -272,9 +272,135 @@
     };
   }
 
+  // PDF mensual de ARCA "Casas particulares - aportes y contribuciones".
+  // El texto sale con las columnas mezcladas, así que se reconstruye con aritmética:
+  // en cada renglón total = obra social + SIPA + ART, y cada columna crece con las horas.
+  function analizarAportesArca(texto) {
+    const t = String(texto).replace(/\s+/g, ' ');
+    const res = { periodo: null, filas: [], problemas: [] };
+    const mp = /vigentes para\s+([a-záéíóú]+)\s+(\d{4})/i.exec(t);
+    if (mp) {
+      const m = MESES.indexOf(sinAcentos(mp[1]));
+      if (m >= 0) res.periodo = `${mp[2]}-${String(m + 1).padStart(2, '0')}`;
+    }
+    const cortes = [
+      ['activo', t.search(/trabajador activo/i)],
+      ['menor', t.search(/Menor de 18/i)],
+      ['jubilado', t.search(/trabajador jubilado/i)],
+    ];
+    if (cortes.some(([, p]) => p < 0)) { res.problemas.push('No encontré los tres bloques (activo, menor, jubilado).'); return res; }
+    const FRANJAS = ['menos_12', '12_a_16', '16_o_mas'];
+    const cerca = (a, b) => Math.abs(a - b) < 0.02;
+    const candidatos = {}; // tipo -> lista de soluciones [r1, r2, r3]
+
+    cortes.forEach(([tipo, ini], k) => {
+      const fin = k < 2 ? cortes[k + 1][1] : t.length;
+      const vals = [...t.slice(ini, fin).matchAll(/\$\s*(-|[\d.]+,\d{2})/g)].map((m) => (m[1] === '-' ? 0 : importeAR(m[1])));
+      if (vals.length !== 12) { res.problemas.push(`${tipo}: esperaba 12 importes y encontré ${vals.length}.`); return; }
+      // El primer renglón (menos de 12) viene en orden: total, obra social, SIPA, ART
+      const r1 = vals.slice(0, 4);
+      if (!cerca(r1[0], r1[1] + r1[2] + r1[3])) { res.problemas.push(`${tipo}: el primer renglón no suma.`); return; }
+      // Los otros 8 importes: probar todas las combinaciones posibles
+      const resto = vals.slice(4);
+      const soluciones = new Map();
+      const usado = Array(8).fill(false);
+      const sel = [];
+      (function probar() {
+        if (sel.length === 8) {
+          const r2 = sel.slice(0, 4).map((i) => resto[i]), r3 = sel.slice(4).map((i) => resto[i]);
+          if (!cerca(r2[0], r2[1] + r2[2] + r2[3]) || !cerca(r3[0], r3[1] + r3[2] + r3[3])) return;
+          for (let c = 0; c < 4; c++) if (!(r1[c] <= r2[c] && r2[c] <= r3[c])) return;
+          soluciones.set(JSON.stringify([r2, r3]), [r2, r3]);
+          return;
+        }
+        for (let i = 0; i < 8; i++) {
+          if (usado[i]) continue;
+          usado[i] = true; sel.push(i); probar(); sel.pop(); usado[i] = false;
+        }
+      })();
+      if (!soluciones.size) { res.problemas.push(`${tipo}: los importes no cierran (total ≠ obra social + SIPA + ART).`); return; }
+      candidatos[tipo] = [...soluciones.values()].map(([r2, r3]) => [r1, r2, r3]);
+    });
+    if (res.problemas.length) return res;
+
+    // Cruce entre bloques: la ART es igual para todos; obra social activo = menor; SIPA activo = jubilado
+    const validas = [];
+    for (const a of candidatos.activo) for (const m of candidatos.menor) for (const j of candidatos.jubilado) {
+      let ok = true;
+      for (let f = 0; f < 3 && ok; f++) {
+        ok = cerca(a[f][3], m[f][3]) && cerca(a[f][3], j[f][3]) && cerca(a[f][1], m[f][1]) && cerca(a[f][2], j[f][2]);
+      }
+      if (ok) validas.push({ activo: a, menor: m, jubilado: j });
+    }
+    if (validas.length !== 1) { res.problemas.push(`No pude ordenar los importes con certeza (${validas.length} opciones): cargalos a mano.`); return res; }
+    for (const tipo of ['activo', 'menor', 'jubilado']) {
+      validas[0][tipo].forEach((r, i) => res.filas.push({ tipo, franja: FRANJAS[i], total: r[0], aporte_os: r[1], contribucion_sipa: r[2], cuota_art: r[3] }));
+    }
+    return res;
+  }
+
+  // ===== Escalas: leer una tabla copiada de UPACP y controlarla =====
+  const CLAVES_ESCALA = [];
+  for (let c = 1; c <= 5; c++) for (const m of ['con_retiro', 'sin_retiro']) CLAVES_ESCALA.push([c, m]);
+
+  // Texto copiado de la página de UPACP → filas {categoria, modalidad, valor_hora, valor_mensual}
+  function analizarTextoEscala(texto) {
+    const t = String(texto).replace(/\s+/g, ' ');
+    const res = { vigencia: null, filas: [], problemas: [] };
+    const mv = /PARTIR DEL\s*1\s*[°º]?\s*DE\s*([a-záéíóú]+)\s*(?:DE\s*)?(\d{4})/i.exec(t);
+    if (mv) {
+      const m = MESES.indexOf(sinAcentos(mv[1]));
+      if (m >= 0) res.vigencia = `${mv[2]}-${String(m + 1).padStart(2, '0')}-01`;
+    }
+    const ini = t.search(/PRIMERA\s+CATEGOR/i);
+    const tramo = (ini >= 0 ? t.slice(ini) : t).split(/El personal que efect|ADICIONAL/i)[0];
+    const montos = [...tramo.matchAll(/\$\s*(\d[\d.]*(?:,\d{1,2})?)/g)].map((m) => importeAR(m[1]));
+    // Caseros (3ª) tiene un solo par (hora, mensual): 18 importes en total
+    if (montos.length === 18) montos.splice(10, 0, montos[8], montos[9]);
+    if (montos.length !== 20) { res.problemas.push(`Esperaba 18 o 20 importes y encontré ${montos.length}.`); return res; }
+    CLAVES_ESCALA.forEach(([categoria, modalidad], i) => {
+      res.filas.push({ categoria, modalidad, valor_hora: montos[i * 2], valor_mensual: montos[i * 2 + 1] });
+    });
+    return res;
+  }
+
+  // Controles automáticos de una vigencia (10 filas). "anterior": filas de la vigencia previa (o null)
+  function controlarEscala(filas, anterior) {
+    const avisos = [];
+    const v = (c, m) => filas.find((f) => f.categoria === c && f.modalidad === m);
+    const nom = (c, m) => `${c}ª ${m === 'con_retiro' ? 'con' : 'sin'} retiro`;
+    for (const [c, m] of CLAVES_ESCALA) {
+      const f = v(c, m);
+      if (!f || !(f.valor_hora > 0) || !(f.valor_mensual > 0)) { avisos.push(`Falta o está en cero: ${nom(c, m)}.`); continue; }
+      const ratio = f.valor_mensual / f.valor_hora;
+      if (ratio < 110 || ratio > 140) avisos.push(`${nom(c, m)}: el mensual equivale a ${Math.round(ratio)} horas (lo normal es ~120-130). ¿Hora o mensual mal tipeado?`);
+      if (anterior) {
+        const a = anterior.find((x) => x.categoria === c && x.modalidad === m);
+        if (a) {
+          for (const campo of ['valor_hora', 'valor_mensual']) {
+            const pct = (f[campo] / a[campo] - 1) * 100;
+            if (pct < 0) avisos.push(`${nom(c, m)}: el ${campo === 'valor_hora' ? 'valor hora' : 'mensual'} BAJA ${pct.toFixed(1)}% respecto de la vigencia anterior.`);
+            else if (pct > 30) avisos.push(`${nom(c, m)}: el ${campo === 'valor_hora' ? 'valor hora' : 'mensual'} sube ${pct.toFixed(1)}% (más de 30%).`);
+          }
+        }
+      }
+    }
+    if (avisos.length) return avisos;
+    const igual = (a, b, campo) => Math.abs(a[campo] - b[campo]) < 0.005;
+    const iguales = (a, b) => igual(a, b, 'valor_hora') && igual(a, b, 'valor_mensual');
+    if (!iguales(v(3, 'con_retiro'), v(3, 'sin_retiro'))) avisos.push('Caseros (3ª) debería ser igual con y sin retiro.');
+    if (!iguales(v(3, 'con_retiro'), v(4, 'con_retiro'))) avisos.push('Habitualmente 4ª con retiro = 3ª (caseros). Revisá.');
+    if (!iguales(v(5, 'sin_retiro'), v(3, 'con_retiro'))) avisos.push('Habitualmente 5ª sin retiro = 3ª (caseros). Revisá.');
+    for (const c of [1, 2, 4, 5]) {
+      if (v(c, 'sin_retiro').valor_hora <= v(c, 'con_retiro').valor_hora) avisos.push(`${c}ª: el valor sin retiro debería ser mayor que con retiro.`);
+    }
+    return avisos;
+  }
+
   const api = {
     calcular, esZonaDesfavorable, diasDeTrabajoEnMes, aniosAntiguedad, numeroALetras, franjaHoras,
-    analizarReciboArca, analizarVep, claveConcepto,
+    analizarReciboArca, analizarVep, claveConcepto, analizarAportesArca,
+    analizarTextoEscala, controlarEscala,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.Liquidacion = api;

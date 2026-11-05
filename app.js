@@ -191,8 +191,11 @@ document.querySelectorAll('[data-escanear]').forEach((b) => b.addEventListener('
 el('btnCancelarScan').addEventListener('click', detenerEscaneo);
 
 // ================= Navegación dentro de la app =================
-const VISTAS = ['vistaLista', 'vistaForm', 'vistaLiquidar', 'vistaPerfil', 'vistaCuenta'];
-const ALCARGAR = { vistaLista: () => cargarLista(), vistaPerfil: () => cargarPerfil(), vistaCuenta: () => cargarCuenta() };
+const VISTAS = ['vistaLista', 'vistaForm', 'vistaLiquidar', 'vistaPerfil', 'vistaCuenta', 'vistaAdmin'];
+const ALCARGAR = {
+  vistaLista: () => cargarLista(), vistaPerfil: () => cargarPerfil(), vistaCuenta: () => cargarCuenta(),
+  vistaAdmin: () => window.cargarAdmin?.(),
+};
 
 function irA(vista) {
   detenerEscaneo();
@@ -311,19 +314,19 @@ formEmpleado.addEventListener('submit', async (ev) => {
 // ================= Escalas salariales =================
 const pesos = (n) => Number(n).toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 const hoyIso = () => new Date().toLocaleDateString('sv'); // aaaa-mm-dd en hora local
-let escalasPromesa = null;
-
-// Trae todas las escalas una vez por sesión (son pocas filas)
-function traerEscalas() {
-  escalasPromesa ??= db.from('escalas').select('*').order('vigencia_desde', { ascending: false })
-    .then(({ data, error }) => { if (error) { escalasPromesa = null; throw error; } return data; });
-  return escalasPromesa;
-}
+let escalasCache = new Map(); // "cat|modalidad|fecha" -> fila (se vacía cuando el admin guarda)
 
 // Escala que rige en una fecha para una categoría y modalidad
+// Pide solo la escala que hace falta (la más reciente vigente a esa fecha)
 async function escalaVigente(categoria, modalidad, fecha = hoyIso()) {
-  const escalas = await traerEscalas();
-  return escalas.find((e) => e.categoria === Number(categoria) && e.modalidad === modalidad && e.vigencia_desde <= fecha) || null;
+  const clave = `${categoria}|${modalidad}|${fecha}`;
+  if (escalasCache.has(clave)) return escalasCache.get(clave);
+  const { data, error } = await db.from('escalas').select('*')
+    .eq('categoria', Number(categoria)).eq('modalidad', modalidad).lte('vigencia_desde', fecha)
+    .order('vigencia_desde', { ascending: false }).limit(1).maybeSingle();
+  if (error) throw error;
+  escalasCache.set(clave, data);
+  return data;
 }
 
 async function actualizarCajaEscala() {
@@ -998,6 +1001,7 @@ function mostrarApp(sesion) {
   if (sesion.user.id !== usuarioActual) {
     usuarioActual = sesion.user.id;
     irA('vistaLista');
+    window.chequearAdmin?.();
   }
 }
 

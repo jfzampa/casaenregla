@@ -237,4 +237,17 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .control th:first-child, .control td:first-child { text-align: left; padding-left: 0; }
 .control th { font-weight: 600; color: var(--gris); font-size: .8rem; }
 
+/* ----- Administración ----- */
+.pestanias.sub { margin-top: 4px; }
+.caja-nueva { border: 1px dashed var(--borde); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+.enlace-chico { display: inline-block; font-size: .88rem; color: var(--azul); margin: 6px 0 10px; }
+textarea { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; font: inherit; font-size: 16px; border: 1px solid var(--borde); border-radius: 10px; }
+.tabla-admin { width: 100%; border-collapse: collapse; font-size: .85rem; margin: 6px 0 12px; }
+.tabla-admin th { text-align: left; color: var(--gris); font-weight: 600; font-size: .78rem; padding: 4px 4px 4px 0; }
+.tabla-admin td { padding: 4px 4px 4px 0; border-bottom: 1px solid #eef0f2; vertical-align: middle; }
+.tabla-admin input { margin: 0; padding: 7px 8px; font-size: 16px; min-width: 0; }
+.tabla-admin small { display: block; color: var(--gris); font-size: .72rem; }
+.tabla-admin small.mal { color: var(--error); }
+.tabla-admin .borrar { background: none; border: none; color: var(--error); cursor: pointer; font-size: .8rem; text-decoration: underline; padding: 0; }
+
 .pie { text-align: center; font-size: .75rem; color: var(--gris); padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }

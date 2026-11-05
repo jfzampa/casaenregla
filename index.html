@@ -108,6 +108,7 @@
       <button type="button" data-vista="vistaLista" class="activa">Empleados</button>
       <button type="button" data-vista="vistaPerfil">Mis datos</button>
       <button type="button" data-vista="vistaCuenta">Mi cuenta</button>
+      <button type="button" data-vista="vistaAdmin" id="tabAdmin" hidden>Admin</button>
     </nav>
 
     <!-- ===== Lista de empleados ===== -->
@@ -433,6 +434,79 @@
       </form>
     </div>
 
+    <!-- ===== Administración (solo el dueño) ===== -->
+    <div id="vistaAdmin" class="vista" hidden>
+      <h2>Administración</h2>
+      <p class="ayuda arriba">Valores oficiales que usan <b>todos</b> los usuarios. Revisá los controles antes de guardar.</p>
+      <nav class="pestanias sub">
+        <button type="button" data-admin="adminEscalas" class="activa">Escalas</button>
+        <button type="button" data-admin="adminAportes">Aportes ARCA</button>
+        <button type="button" data-admin="adminParametros">Parámetros</button>
+      </nav>
+
+      <!-- Escalas -->
+      <section id="adminEscalas" class="tarjeta">
+        <label>Vigencia <select id="selVigencia"></select></label>
+        <button type="button" id="btnNuevaVigencia" class="boton boton-secundario borde">+ Nueva vigencia</button>
+        <div id="nuevaVigencia" class="caja-nueva" hidden>
+          <label>Vigente desde (mes) <input type="month" id="vigNueva"></label>
+          <div class="fila">
+            <label>Aumento % sobre la anterior <input type="number" step="0.01" id="pctAumento" inputmode="decimal"></label>
+            <button type="button" id="btnAplicarPct" class="boton boton-chico">Aplicar</button>
+          </div>
+          <label>O pegá la tabla copiada de la página de UPACP
+            <textarea id="txtUpacp" rows="4" placeholder="Copiá desde 'PRIMERA CATEGORIA' hasta la quinta y pegalo acá"></textarea>
+          </label>
+          <button type="button" id="btnLeerUpacp" class="boton boton-secundario borde">Leer tabla pegada</button>
+          <a class="enlace-chico" href="https://upacp.org.ar/sueldos/" target="_blank" rel="noopener">Abrir la escala vigente en UPACP ↗</a>
+        </div>
+        <label>Resolución <input id="resolEscala" placeholder="Ej.: CNTCP 7/2026" autocomplete="off"></label>
+        <table class="tabla-admin" id="tablaEscala"></table>
+        <ul id="controlesEscala" class="avisos" hidden></ul>
+        <p id="okEscala" class="estado"></p>
+        <button type="button" id="btnGuardarEscala" class="boton boton-principal">Guardar vigencia</button>
+        <p class="estado" id="estadoEscala" role="status"></p>
+      </section>
+
+      <!-- Aportes ARCA -->
+      <section id="adminAportes" class="tarjeta" hidden>
+        <label>Período <select id="selPeriodoAportes"></select></label>
+        <button type="button" id="btnNuevoPeriodo" class="boton boton-secundario borde">+ Nuevo período</button>
+        <div id="nuevoPeriodo" class="caja-nueva" hidden>
+          <label>Período (mes) <input type="month" id="perNuevo"></label>
+          <a class="enlace-chico" id="linkPdfArca" href="#" target="_blank" rel="noopener">1. Abrir el PDF de ese mes en ARCA y guardarlo ↗</a>
+          <label>2. Subí el PDF de ARCA <input type="file" id="pdfAportes" accept="application/pdf"></label>
+          <p class="ayuda" id="avisoPdfAportes"></p>
+        </div>
+        <table class="tabla-admin" id="tablaAportes"></table>
+        <button type="button" id="btnGuardarAportes" class="boton boton-principal">Guardar período</button>
+        <p class="estado" id="estadoAportes" role="status"></p>
+      </section>
+
+      <!-- Parámetros -->
+      <section id="adminParametros" class="tarjeta" hidden>
+        <table class="tabla-admin" id="tablaParametros"></table>
+        <h3>Agregar o cambiar un valor</h3>
+        <form id="formParametro" novalidate>
+          <label>Parámetro
+            <select name="clave" required>
+              <option value="zona_desfavorable_pct">Zona desfavorable (%)</option>
+              <option value="antiguedad_pct_anual">Antigüedad (% por año)</option>
+              <option value="horas_mensualizado">Horas semanales para mensualizado</option>
+              <option value="antiguedad_desde">Antigüedad se cuenta desde (aaaammdd)</option>
+            </select>
+          </label>
+          <div class="fila">
+            <label>Vigente desde <input name="vigencia_desde" type="date" required></label>
+            <label>Valor <input name="valor" type="number" step="0.0001" required inputmode="decimal"></label>
+          </div>
+          <label>Descripción / fuente <input name="descripcion" autocomplete="off"></label>
+          <button type="submit" class="boton boton-principal">Guardar parámetro</button>
+          <p class="estado" role="status"></p>
+        </form>
+      </section>
+    </div>
+
     <!-- ===== Mi cuenta ===== -->
     <div id="vistaCuenta" class="vista" hidden>
       <h2>Mi cuenta</h2>
@@ -494,5 +568,6 @@
   <script src="config.js"></script>
   <script src="liquidacion.js"></script>
   <script src="app.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>

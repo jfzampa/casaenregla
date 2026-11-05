@@ -59,6 +59,22 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   bruto (y horas/jornadas si es por hora, período); retenciones; neto en números y letras; constancia de entrega; fecha de ingreso y categoría; lugar y fecha de pago.
 - **Plazo de pago (art. 19)**: mensualizados, hasta el 4º día hábil del mes siguiente; por hora, al terminar la jornada o la semana, según lo acordado.
 
+## Metodología de actualización de escalas (propuesta 2026-11-04)
+- **Histórico cargado**: `supabase/09_escalas_historicas.sql` = 69 vigencias 09/2013–10/2026 leídas de UPACP con `herramientas/leer_upacp.py`
+  (+ 11/2026 en el 04). Incluye historia de zona desfavorable (20%→25%→28%→30%→31%) y antigüedad desde 09/2021.
+- **Fuentes**: UPACP `/sueldos/` (vigente) e histórico; Boletín Oficial (resolución CNTCP); ARCA PDF mensual de aportes
+  (URL predecible: `.../casasparticulares/aportes-contribuciones-ART/documentos/AAAA/Casas-particulares-aportes-y-contribuciones-MM-AA.pdf`).
+- **Paso A — Administración** ✔ HECHO (`supabase/10_admin.sql`, `admin.js`): tabla `admins` + función `es_admin()`; pestaña "Admin"
+  solo para el dueño. Escalas: ver/editar por vigencia, nueva vigencia por % de aumento o pegando la tabla de UPACP, % vs anterior y
+  controles automáticos (`Liquidacion.controlarEscala`). Aportes: nuevo período subiendo el PDF de ARCA (`analizarAportesArca`, reconstruye
+  columnas por aritmética y cruce entre bloques). Parámetros: alta/baja. La app pide solo la escala vigente que necesita (no todas).
+  Los controles marcan 5 de 69 vigencias históricas: 2013-09, 2020-05, 2024-12 (5ª sin retiro hora $3.413, probable tipeo de UPACP), 2025-01, 2026-10.
+- **Paso B — Robot**: Supabase Edge Function que descarga UPACP y el PDF de ARCA, los lee y guarda lo nuevo como
+  **propuesta pendiente** (nunca directo a `escalas`). Corre solo 1 vez por día (pg_cron); el navegador no puede leer UPACP directo (CORS).
+- **Paso C — Al iniciar la app**: avisar si el mes actual no tiene escala/aportes publicados (se usa la última); y si se aprobó una escala
+  **retroactiva** que afecta liquidaciones ya guardadas, avisar "hay que recalcular" con la diferencia.
+- Regla: **ningún valor llega a los usuarios sin aprobación del dueño** (controles automáticos: 10 renglones, aumento razonable, 3ª = 4ª con retiro).
+
 ## Ideas futuras
 - **Acceso del empleado**: que el empleado vea sus recibos y los acuerdos (descuento de aportes, medio de pago acordado) y los acepte con firma electrónica, quedando asentado.
 

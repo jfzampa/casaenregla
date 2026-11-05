@@ -1,7 +1,7 @@
 // Service worker: permite instalar la app y abrirla sin conexión.
 // Primero intenta internet (para ver siempre la última versión); si no hay, usa lo guardado.
-const CACHE = 'casaenregla-v9';
-const ARCHIVOS = ['./', 'index.html', 'styles.css', 'config.js', 'liquidacion.js', 'app.js', 'manifest.json', 'icon.svg'];
+const CACHE = 'casaenregla-v10';
+const ARCHIVOS = ['./', 'index.html', 'styles.css', 'config.js', 'liquidacion.js', 'app.js', 'admin.js', 'manifest.json', 'icon.svg'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ARCHIVOS)));
