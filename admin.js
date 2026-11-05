@@ -29,7 +29,89 @@
     document.querySelectorAll('[data-admin]').forEach((b) => b.classList.toggle('activa', b.dataset.admin === id));
     ({ adminEscalas: cargarVigencias, adminAportes: cargarPeriodos, adminParametros: cargarParametros, adminFeriados: cargarFeriados })[id]();
   }
-  window.cargarAdmin = () => mostrarSub('adminEscalas');
+  window.cargarAdmin = () => { cargarRobot(); mostrarSub('adminEscalas'); };
+
+  // =====================================================================
+  // ROBOT: hallazgos pendientes de aprobación
+  // =====================================================================
+  let hallazgos = [];
+  async function cargarRobot() {
+    const [ult, hall] = await Promise.all([
+      db.from('robot_ejecuciones').select('*').order('ejecutado', { ascending: false }).limit(1).maybeSingle(),
+      db.from('robot_hallazgos').select('*').eq('estado', 'pendiente').order('creado', { ascending: false }),
+    ]);
+    if (hall.error) { el('robotUltima').textContent = 'El robot todavía no está instalado (SQL 19 y la función "robot-escalas").'; el('listaHallazgos').innerHTML = ''; return; }
+    el('robotUltima').textContent = ult.data
+      ? `Última revisión: ${new Date(ult.data.ejecutado).toLocaleString('es-AR')}\n${ult.data.informe || ''}`
+      : 'Todavía no corrió ninguna revisión. Tocá "Revisar ahora".';
+    hallazgos = hall.data;
+    el('listaHallazgos').innerHTML = hallazgos.length ? hallazgos.map((h) => {
+      const d = h.datos;
+      if (h.tipo === 'aportes') {
+        return `<div class="hallazgo"><b>ARCA publicó los aportes de ${nombreVig(d.periodo + '-01')}</b>
+          <div class="acciones"><a class="boton boton-secundario borde" href="${escapar(d.url)}" target="_blank" rel="noopener">1. Abrir PDF ↗</a>
+          <button type="button" class="boton boton-principal" data-h-aplicar="${h.id}">2. Cargarlo</button>
+          <button type="button" class="boton boton-secundario borde" data-h-descartar="${h.id}">Descartar</button></div></div>`;
+      }
+      const titulo = h.tipo === 'escala'
+        ? `Escala nueva en UPACP, vigente desde ${nombreVig(d.vigencia)}${d.resolucion ? ` (Res. ${escapar(d.resolucion)})` : ''}`
+        : `La escala ${nombreVig(d.vigencia)} publicada en UPACP difiere de la cargada en ${d.distintas.length} valor(es)`;
+      return `<div class="hallazgo"><b>${titulo}</b>
+        <div class="acciones"><button type="button" class="boton boton-principal" data-h-aplicar="${h.id}">Revisar y cargar</button>
+        <a class="boton boton-secundario borde" href="${escapar(d.fuente)}" target="_blank" rel="noopener">Ver en UPACP ↗</a>
+        <button type="button" class="boton boton-secundario borde" data-h-descartar="${h.id}">Descartar</button></div></div>`;
+    }).join('') : '<p class="ayuda">Sin novedades pendientes.</p>';
+  }
+
+  el('btnRobotAhora').addEventListener('click', async () => {
+    el('robotUltima').textContent = 'Revisando UPACP y ARCA…';
+    const { error } = await db.functions.invoke('robot-escalas', { body: {} });
+    if (error) { el('robotUltima').textContent = 'No se pudo ejecutar el robot. ¿Está instalada la función "robot-escalas"?'; console.error(error); return; }
+    cargarRobot();
+  });
+
+  el('listaHallazgos').addEventListener('click', async (ev) => {
+    const desc = ev.target.closest('[data-h-descartar]');
+    if (desc) {
+      if (!confirm('¿Descartar este hallazgo? No se vuelve a avisar.')) return;
+      await db.from('robot_hallazgos').update({ estado: 'descartado' }).eq('id', desc.dataset.hDescartar);
+      cargarRobot();
+      return;
+    }
+    const apl = ev.target.closest('[data-h-aplicar]');
+    if (!apl) return;
+    const h = hallazgos.find((x) => x.id === apl.dataset.hAplicar);
+    if (h.tipo === 'aportes') {
+      st.hallazgoAportes = h.id;
+      mostrarSub('adminAportes');
+      await new Promise((r) => setTimeout(r, 400));
+      el('btnNuevoPeriodo').click();
+      await new Promise((r) => setTimeout(r, 400));
+      el('perNuevo').value = h.datos.periodo;
+      actualizarLinkPdf();
+      el('adminAportes').scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+    // Escala: abrir el editor con los valores del robot, para revisar y guardar
+    st.hallazgoEscala = h.id;
+    mostrarSub('adminEscalas');
+    await cargarVigencias();
+    const existe = st.vigencias.includes(h.datos.vigencia);
+    if (existe) {
+      await abrirVigencia(h.datos.vigencia);
+    } else {
+      const base = await filasDeVigencia(st.vigencias[0]);
+      st.nueva = true;
+      st.anterior = base;
+      el('nuevaVigencia').hidden = false;
+      el('selVigencia').disabled = true;
+      el('vigNueva').value = h.datos.vigencia.slice(0, 7);
+    }
+    el('resolEscala').value = h.datos.resolucion || el('resolEscala').value;
+    dibujarEscala(h.datos.filas);
+    mostrarEstado(el('estadoEscala'), `Valores leídos por el robot de UPACP${existe ? ' (comparalos con los cargados)' : ''}. Revisá los controles y tocá "Guardar vigencia".`);
+    el('adminEscalas').scrollIntoView({ behavior: 'smooth' });
+  });
 
   // =====================================================================
   // ESCALAS
@@ -153,6 +235,7 @@
     const { error } = await db.from('escalas').upsert(filas, { onConflict: 'vigencia_desde,categoria,modalidad' });
     if (error) { mostrarEstado(el('estadoEscala'), 'No se pudo guardar (¿tenés rol de admin?).', true); console.error(error); return; }
     escalasCache.clear();
+    if (st.hallazgoEscala) { await db.from('robot_hallazgos').update({ estado: 'aplicado' }).eq('id', st.hallazgoEscala); st.hallazgoEscala = null; cargarRobot(); }
     await cargarVigencias(vig);
     mostrarEstado(el('estadoEscala'), `✓ Vigencia ${nombreVig(vig)} guardada. Ya la usan todos los usuarios.`);
   });
@@ -260,6 +343,7 @@
     const filas = leerAportes().map((f) => ({ ...f, periodo_desde: per }));
     const { error } = await db.from('aportes_arca').upsert(filas, { onConflict: 'periodo_desde,tipo,franja' });
     if (error) { mostrarEstado(el('estadoAportes'), 'No se pudo guardar (¿tenés rol de admin?).', true); console.error(error); return; }
+    if (st.hallazgoAportes) { await db.from('robot_hallazgos').update({ estado: 'aplicado' }).eq('id', st.hallazgoAportes); st.hallazgoAportes = null; cargarRobot(); }
     await cargarPeriodos(per);
     mostrarEstado(el('estadoAportes'), `✓ Aportes de ${nombreVig(per)} guardados.`);
   });

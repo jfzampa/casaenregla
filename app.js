@@ -285,14 +285,20 @@ async function cargarAvisos(lista) {
     feriados: new Set((fer.data || []).map((f) => f.fecha)),
     escalaUltima: ultima.data ? ultima.data.vigencia_desde : null,
   });
+  const robot = await db.from('robot_hallazgos').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente');
+  if (!robot.error && robot.count) {
+    avisos.unshift({ nivel: 'atencion', accion: { tipo: 'admin' },
+      texto: `🤖 El robot encontró ${robot.count} novedad${robot.count === 1 ? '' : 'es'} de escalas o aportes: revisala${robot.count === 1 ? '' : 's'} y aprobala${robot.count === 1 ? '' : 's'} en Admin.` });
+  }
   caja.hidden = !avisos.length;
   el('listaAvisos').innerHTML = avisos.map((av, i) => `
     <li class="${av.nivel}"><span class="icono"></span><span class="texto">${escapar(av.texto)}</span>
-    ${av.accion ? `<button type="button" data-aviso="${i}">${av.accion.tipo === 'cierre' ? 'Cerrar mes' : 'Liquidar'}</button>` : ''}</li>`).join('');
+    ${av.accion ? `<button type="button" data-aviso="${i}">${{ cierre: 'Cerrar mes', admin: 'Ir a Admin' }[av.accion.tipo] || 'Liquidar'}</button>` : ''}</li>`).join('');
   el('listaAvisos').onclick = (ev) => {
     const b = ev.target.closest('[data-aviso]');
     if (!b) return;
     const av = avisos[Number(b.dataset.aviso)];
+    if (av.accion.tipo === 'admin') { irA('vistaAdmin'); return; }
     const e = lista.find((x) => x.id === av.empleado_id);
     if (!e) return;
     liqIrACierre = av.accion.tipo === 'cierre';

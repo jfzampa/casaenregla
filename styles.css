@@ -281,6 +281,12 @@ legend { font-size: .9rem; color: var(--gris); margin-bottom: 6px; }
 .chip-acuerdo.rechazado { background: #fbe1de; color: var(--error); }
 .chip-acuerdo.leido { background: #e2ecf8; color: #24508a; }
 
+/* ----- Robot ----- */
+.hallazgo { border: 1px solid #f0d78a; background: #fffcf2; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: .9rem; }
+.hallazgo .acciones { margin: 8px 0 0; flex-wrap: wrap; }
+.hallazgo .acciones .boton, .hallazgo .acciones a { width: auto; flex: 1; font-size: .85rem; padding: 9px 8px; text-align: center; text-decoration: none; }
+#robotUltima { white-space: pre-line; }
+
 /* ----- Liquidación ----- */
 .otro { border: 1px solid var(--borde); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
 .otro .fila { align-items: flex-end; }

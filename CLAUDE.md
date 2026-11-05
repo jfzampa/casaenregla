@@ -72,7 +72,7 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   controles automáticos (`Liquidacion.controlarEscala`). Aportes: nuevo período subiendo el PDF de ARCA (`analizarAportesArca`, reconstruye
   columnas por aritmética y cruce entre bloques). Parámetros: alta/baja. La app pide solo la escala vigente que necesita (no todas).
   Los controles marcan 5 de 69 vigencias históricas: 2013-09, 2020-05, 2024-12 (5ª sin retiro hora $3.413, probable tipeo de UPACP), 2025-01, 2026-10.
-- **Paso B — Robot**: Supabase Edge Function que descarga UPACP y el PDF de ARCA, los lee y guarda lo nuevo como
+- **Paso B — Robot** ✔ HECHO (`supabase/19_robot.sql`, `20_robot_cron.sql`, `supabase/functions/robot-escalas/index.ts`; se pega en el editor de Edge Functions del panel). Supabase Edge Function que descarga UPACP y el PDF de ARCA, los lee y guarda lo nuevo como
   **propuesta pendiente** (nunca directo a `escalas`). Corre solo 1 vez por día (pg_cron); el navegador no puede leer UPACP directo (CORS).
 - **Paso C — Al iniciar la app** ✔ HECHO (dentro de los avisos): avisar si el mes actual no tiene escala/aportes publicados (se usa la última); y si se aprobó una escala
   **retroactiva** que afecta liquidaciones ya guardadas, avisar "hay que recalcular" con la diferencia.
@@ -170,6 +170,12 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   Si solo es empleado, se ocultan Empleados y Mis datos. Lo cargado por el empleado entra en la liquidación solo si el empleador lo confirma.
   ⚠ Para PROBAR con cuentas de empleados: desactivar "Confirm email" en Supabase (el envío de mails gratis solo llega al dueño);
   volver a activarlo en la fase final junto con el SMTP propio.
+- Robot ✔: deja `robot_hallazgos` (escala nueva, escala publicada distinta de la cargada, PDF de aportes publicado) y registra cada corrida en
+  `robot_ejecuciones`. Admin > 🤖 Robot: "Revisar ahora" (invoca la función con la sesión del admin), "Revisar y cargar" abre el editor de
+  escalas con los valores leídos (o Aportes > nuevo período) y al guardar marca el hallazgo como aplicado; aviso en el inicio para el admin.
+  La función valida: encabezado x-robot = secreto ROBOT_SECRETO (cron) o JWT de un usuario admin. "Verify JWT" desactivado en la función.
+  El secreto NO está en el repo (20_robot_cron.sql tiene PONER_SECRETO).
+- Avisos por notificación push / mail: pendiente (push = Web Push con claves VAPID; mail = en la fase final con SMTP).
 - Portal del empleado parte 2 ✔ (`supabase/18_acuerdos.sql`): acuerdos y comunicaciones con firma electrónica (Ley 25.506).
   El empleador redacta desde la ficha con modelos (medio de pago, descuento de aporte, vacaciones, horario, preaviso, comunicación, otro)
   que se completan con los datos de la ficha y de Mis datos; una vez enviado el texto no se puede editar (sin permiso de update;
