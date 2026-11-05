@@ -182,6 +182,9 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   (Inicio, Empleados, Novedades, Mi trabajo si corresponde, Cuenta); pantalla de Inicio (saludo con nombre, Primeros pasos con progreso
   — se ocultan con localStorage —, accesos rápidos, Tareas pendientes = avisos, resumen del mes con costo y vencimientos); vista Novedades
   para elegir a quién anotar; mensajes flotantes (toast) para toda confirmación "✓ …" de mostrarEstado.
+- Instalación verificada (2026-11-05): funciones `robot-escalas` y `enviar-avisos` publicadas (Verify JWT apagado), 4 secretos OK
+  (ROBOT_SECRETO, VAPID_PUBLICA, VAPID_PRIVADA, VAPID_CONTACTO), tareas cron `robot-escalas-diario` (11:00 UTC) y
+  `enviar-avisos-diario` (11:30 UTC) con la clave correcta. Ojo: en el cron va la CLAVE, no el "digest" que muestra el panel.
 - Robot verificado en producción (2026-11-05): responde el informe correcto con el secreto; sin secreto devuelve 401.
 - Notificaciones push ✔ (`supabase/21_notificaciones.sql`, `22_avisos_cron.sql`, `supabase/functions/enviar-avisos/index.ts`):
   Web Push con claves VAPID (pública en config.js; privada solo en Secrets: VAPID_PRIVADA, + VAPID_PUBLICA, VAPID_CONTACTO opcional).
