@@ -356,6 +356,7 @@ async function cargarInicio() {
   cargarAvisos(lista).catch((err) => console.error('avisos', err));
   mostrarBannerNotif().catch(console.error);
   mostrarEstadoRobot().catch(console.error);
+  cargarPlan().then(bannerPlan).catch(console.error);
 }
 
 // Estado del robot en Inicio: solo lo ve el admin (para los demás la consulta vuelve vacía por las reglas de la base)
@@ -514,6 +515,7 @@ function validarEmpleado(e) {
 
 formEmpleado.addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (bloqueadoPorPlan()) return;
   limpiarMarcas(formEmpleado);
   const e = leerCampos(formEmpleado, CAMPOS_EMPLEADO);
   e.cuil = (e.cuil || '').replace(/\D/g, '');
@@ -789,6 +791,7 @@ el('btnCancelarNovedad').addEventListener('click', () => { el('formNovedad').hid
 
 el('formNovedad').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (bloqueadoPorPlan()) return;
   const f = ev.target, estado = estadoDe(f);
   const tipo = f.elements.tipo.value;
   const conHoras = ['horas_extra_50', 'horas_extra_100', 'feriado_trabajado'].includes(tipo);
@@ -1165,6 +1168,7 @@ function recalcular() {
 
 formLiq.addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (bloqueadoPorPlan()) return;
   const r = liq.resultado;
   const estado = estadoDe(formLiq, 'estado-guardar');
   if (!r) { mostrarEstado(estado, 'No se puede guardar: falta la escala salarial del período.', true); return; }
@@ -1429,6 +1433,7 @@ async function textoDePdf(archivo) {
 // ---- Guardar el cierre ----
 formCierre.addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (bloqueadoPorPlan()) return;
   limpiarMarcas(formCierre);
   const c = leerCampos(formCierre, ['vep_numero', 'vep_fecha', 'vep_importe', 'recibo_arca_neto', 'pago_fecha', 'pago_medio', 'pago_transaccion', 'pago_importe', 'observaciones']);
   c.recibo_arca_neto = c.recibo_arca_neto != null ? Number(c.recibo_arca_neto) : null;
@@ -1531,6 +1536,7 @@ async function cargarCuenta() {
   const { data: { user } } = await db.auth.getUser();
   el('emailActual').textContent = user?.email || '';
   actualizarNotif().catch(console.error);
+  cargarPlan().then(actualizarPlanUI).catch(console.error);
 }
 
 el('formEmail').addEventListener('submit', async (ev) => {
@@ -1687,6 +1693,99 @@ el('btnBannerNotifNo').addEventListener('click', () => {
   toast('Podés activarlas cuando quieras desde Cuenta.');
 });
 
+// ================= Plan / suscripción (Mercado Pago) =================
+let plan = null;
+window.soloLectura = false;
+const volvioDeMP = new URLSearchParams(location.search).get('suscripcion');
+if (volvioDeMP) history.replaceState(null, '', location.pathname + location.hash);
+
+async function cargarPlan() {
+  const { data, error } = await db.rpc('mi_plan');
+  if (error || !data || !data.length) { plan = null; window.soloLectura = false; return null; }
+  plan = data[0];
+  window.soloLectura = !plan.puede_editar;
+  document.body.classList.toggle('solo-lectura', window.soloLectura);
+  return plan;
+}
+
+// Freno en pantalla (la base igual lo rechaza): devuelve true si no se puede guardar
+function bloqueadoPorPlan() {
+  if (!window.soloLectura) return false;
+  toast('Tu prueba gratis terminó: suscribite desde Cuenta → Mi plan para seguir cargando. Lo cargado lo podés seguir viendo.', true);
+  return true;
+}
+window.bloqueadoPorPlan = bloqueadoPorPlan;
+
+function textoPlan(p) {
+  const precio = pesos(p.precio || 4990);
+  if (p.es_admin) return 'Sos administrador: uso sin cargo.';
+  if (p.estado === 'cortesia') return 'Tenés uso sin cargo (cortesía). ¡Gracias por ayudarnos a probar CasaEnRegla!';
+  if (p.estado === 'activa') return `✓ Suscripción activa · ${precio} por mes${p.proximo_cobro ? ` · próximo cobro ${fechaCorta(p.proximo_cobro)}` : ''}.`;
+  if (p.estado === 'pendiente') return 'Tu suscripción está pendiente de confirmación en Mercado Pago. Si ya pagaste, tocá "Actualizar estado".';
+  const enPrueba = p.dias_restantes >= 0;
+  const base = enPrueba
+    ? `Prueba gratis: te ${p.dias_restantes === 1 ? 'queda 1 día' : `quedan ${p.dias_restantes} días`} (hasta el ${fechaCorta(p.prueba_hasta)}).`
+    : `Tu prueba gratis terminó el ${fechaCorta(p.prueba_hasta)}.`;
+  const extra = p.estado === 'cancelada' ? ' Tu suscripción está cancelada.' : p.estado === 'pausada' ? ' Tu suscripción está pausada.' : '';
+  const cola = !enPrueba ? (p.cobro_activo ? ' Estás en modo solo lectura: podés ver todo, pero no cargar.' : ' Por ahora podés seguir usando todo sin cargo.') : '';
+  return `${base}${extra}${cola} La suscripción cuesta ${precio} por mes.`;
+}
+
+async function actualizarPlanUI() {
+  const p = plan || (await cargarPlan());
+  if (!p) { el('estadoPlan').textContent = 'No se pudo consultar tu plan (¿corriste el SQL 23?).'; return; }
+  el('estadoPlan').textContent = textoPlan(p);
+  const sinCargo = p.es_admin || p.estado === 'cortesia';
+  el('btnSuscribir').hidden = sinCargo || p.estado === 'activa';
+  el('btnSuscribir').textContent = p.estado === 'pendiente' ? 'Volver a intentar el pago' : `Suscribirme por ${pesos(p.precio || 4990)} por mes`;
+  el('btnActualizarPlan').hidden = sinCargo || !['pendiente', 'activa', 'pausada'].includes(p.estado);
+  el('btnCancelarPlan').hidden = sinCargo || !['activa', 'pausada', 'pendiente'].includes(p.estado);
+}
+
+function bannerPlan() {
+  const p = plan;
+  const caja = el('bannerPlan');
+  if (!p || p.es_admin || ['activa', 'cortesia'].includes(p.estado)) { caja.hidden = true; return; }
+  let texto = '';
+  if (window.soloLectura) texto = '🔒 Tu prueba gratis terminó: estás en modo solo lectura. Suscribite para seguir liquidando.';
+  else if (p.dias_restantes >= 0 && p.dias_restantes <= 7) texto = `⏳ Te ${p.dias_restantes === 1 ? 'queda 1 día' : `quedan ${p.dias_restantes} días`} de prueba gratis.`;
+  else if (p.estado === 'pendiente') texto = '💳 Tu suscripción está pendiente de confirmación en Mercado Pago.';
+  el('textoBannerPlan').textContent = texto;
+  caja.hidden = !texto;
+}
+
+async function pedirMP(accion) {
+  const { data, error } = await db.functions.invoke('mercadopago', { body: { accion } });
+  if (error || (data && data.error)) {
+    let msj = data && data.error;
+    if (!msj && error && error.context && error.context.json) { try { msj = (await error.context.json()).error; } catch { /* nada */ } }
+    toast(msj || 'No se pudo conectar con Mercado Pago. Probá de nuevo en un rato.', true);
+    console.error(error, data);
+    return null;
+  }
+  return data;
+}
+
+el('btnSuscribir').addEventListener('click', async () => {
+  el('btnSuscribir').disabled = true;
+  const r = await pedirMP('suscribir');
+  el('btnSuscribir').disabled = false;
+  if (r && r.init_point) { toast('Te llevamos a Mercado Pago para confirmar la suscripción…'); location.href = r.init_point; }
+});
+el('btnActualizarPlan').addEventListener('click', async () => {
+  const r = await pedirMP('actualizar');
+  if (!r) return;
+  await cargarPlan(); await actualizarPlanUI();
+  toast(plan && plan.estado === 'activa' ? '✓ Tu suscripción está activa.' : 'Estado actualizado.');
+});
+el('btnCancelarPlan').addEventListener('click', async () => {
+  if (!confirm('¿Cancelar la suscripción? Vas a poder seguir viendo todo, pero sin cargar nada nuevo cuando termine el período.')) return;
+  const r = await pedirMP('cancelar');
+  if (!r) return;
+  await cargarPlan(); await actualizarPlanUI();
+  toast('Suscripción cancelada.');
+});
+
 // ================= Login, crear cuenta, recuperar contraseña =================
 function mostrarLogin(vista, aviso = '', mal = false) {
   el('btnUsuario').hidden = true;
@@ -1772,6 +1871,13 @@ function mostrarApp(sesion) {
   if (sesion.user.id !== usuarioActual) {
     usuarioActual = sesion.user.id;
     window.chequearAdmin?.();
+    cargarPlan().then(async () => {
+      if (volvioDeMP) {
+        await pedirMP('actualizar');
+        await cargarPlan();
+        toast(plan && plan.estado === 'activa' ? '✓ ¡Gracias! Tu suscripción está activa.' : 'Estamos esperando la confirmación de Mercado Pago. Revisá en Cuenta → Mi plan en unos minutos.');
+      }
+    }).catch(console.error);
     if (window.iniciarRol) window.iniciarRol(); else irA('vistaLista');
   }
 }

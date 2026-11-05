@@ -192,6 +192,12 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   app instalada (iOS 16.4+). La función carga el motor `liquidacion.js` publicado en GitHub Pages (new Function) y manda 1 resumen
   diario con lo urgente (avisos no-info, novedades a confirmar, hallazgos del robot para admin, acuerdos/novedades para el empleado).
   Mail: en la fase final con SMTP.
+- Suscripción Mercado Pago ✔ (`supabase/23_suscripciones.sql`, `supabase/functions/mercadopago/index.ts`): $4.990/mes, 30 días de prueba,
+  sin pago = SOLO LECTURA (reforzado en la base: las reglas de escritura de empleados, liquidaciones, novedades, acuerdos e invitaciones
+  exigen `puede_editar()`; el portal del empleado no se bloquea; el admin nunca). Parámetros `precio_mensual`, `dias_prueba`, `cobro_activo`
+  (arranca en 0 = nadie bloqueado). Admin > Suscripciones: encender/apagar el cobro y dar/quitar cortesía. Cuenta > 💳 Mi plan. La función
+  crea un preapproval (external_reference = id del usuario, payer_email = su email), cancela y sincroniza; el webhook vuelve a consultar
+  la API de MP (no confía en el aviso). Secret MP_ACCESS_TOKEN (primero credencial de PRUEBA). Pendiente: pasar a credenciales de producción.
 - Portal del empleado parte 2 ✔ (`supabase/18_acuerdos.sql`): acuerdos y comunicaciones con firma electrónica (Ley 25.506).
   El empleador redacta desde la ficha con modelos (medio de pago, descuento de aporte, vacaciones, horario, preaviso, comunicación, otro)
   que se completan con los datos de la ficha y de Mis datos; una vez enviado el texto no se puede editar (sin permiso de update;

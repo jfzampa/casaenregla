@@ -137,6 +137,11 @@
         <ol id="listaPasos"></ol>
       </section>
 
+      <div id="bannerPlan" class="banner" hidden>
+        <span id="textoBannerPlan"></span>
+        <button type="button" class="link" data-vista="vistaCuenta">Ver mi plan</button>
+      </div>
+
       <div id="bannerNotif" class="banner" hidden>
         🔔 <b>Activá las notificaciones</b> para que te avisemos de los vencimientos sin tener que abrir la app.
         <div class="acciones">
@@ -736,6 +741,7 @@
         <button type="button" data-admin="adminAportes">Aportes ARCA</button>
         <button type="button" data-admin="adminParametros">Parámetros</button>
         <button type="button" data-admin="adminFeriados">Feriados</button>
+        <button type="button" data-admin="adminSuscripciones">Suscripciones</button>
       </nav>
 
       <!-- Escalas -->
@@ -791,6 +797,9 @@
               <option value="vep_dia_vencimiento">Día de vencimiento del VEP</option>
               <option value="periodo_prueba_meses">Período de prueba (meses)</option>
               <option value="vacaciones_divisor">Vacaciones: divisor (25 con plus / 30 sin plus)</option>
+              <option value="precio_mensual">Suscripción: precio mensual ($)</option>
+              <option value="dias_prueba">Suscripción: días de prueba gratis</option>
+              <option value="cobro_activo">Suscripción: cobro activo (1 = sí, 0 = no)</option>
             </select>
           </label>
           <div class="fila">
@@ -801,6 +810,13 @@
           <button type="submit" class="boton boton-principal">Guardar parámetro</button>
           <p class="estado" role="status"></p>
         </form>
+      </section>
+
+      <!-- Suscripciones -->
+      <section id="adminSuscripciones" class="tarjeta" hidden>
+        <p class="ayuda arriba" id="estadoCobro"></p>
+        <button type="button" id="btnCobroActivo" class="boton boton-secundario borde"></button>
+        <table class="tabla-admin" id="tablaSuscripciones"></table>
       </section>
 
       <!-- Feriados -->
@@ -829,6 +845,17 @@
           <button type="button" id="btnNotifActivar" class="boton boton-principal">Activar en este dispositivo</button>
           <button type="button" id="btnNotifPrueba" class="boton boton-secundario borde" hidden>Enviarme una de prueba</button>
         </div>
+      </section>
+
+      <section class="tarjeta" id="cajaPlan">
+        <h3>💳 Mi plan</h3>
+        <p class="ayuda arriba" id="estadoPlan">Revisando…</p>
+        <div class="acciones">
+          <button type="button" id="btnSuscribir" class="boton boton-principal" hidden>Suscribirme</button>
+          <button type="button" id="btnActualizarPlan" class="boton boton-secundario borde" hidden>Actualizar estado</button>
+          <button type="button" id="btnCancelarPlan" class="boton boton-secundario borde" hidden>Cancelar suscripción</button>
+        </div>
+        <p class="ayuda">El cobro es mensual y lo procesa Mercado Pago (CasaEnRegla nunca ve los datos de tu tarjeta). Podés cancelar cuando quieras.</p>
       </section>
 
       <section class="tarjeta">

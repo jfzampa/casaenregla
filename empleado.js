@@ -317,6 +317,7 @@
 
   el('formAcuerdo').addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    if (window.bloqueadoPorPlan && window.bloqueadoPorPlan()) return;
     const f = ev.target, estado = f.querySelector('.estado');
     const fila = {
       empleado_id: fichaActual.id, tipo: f.elements.tipo.value,
@@ -423,6 +424,7 @@
 
   document.addEventListener('click', async (ev) => {
     if (!ev.target.closest('#btnInvitar') || !fichaActual) return;
+    if (window.bloqueadoPorPlan && window.bloqueadoPorPlan()) return;
     const e = fichaActual;
     const bytes = crypto.getRandomValues(new Uint8Array(12));
     const codigo = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

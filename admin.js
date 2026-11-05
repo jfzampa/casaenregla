@@ -25,9 +25,9 @@
   // ---------- Sub-pestañas ----------
   document.querySelectorAll('[data-admin]').forEach((b) => b.addEventListener('click', () => mostrarSub(b.dataset.admin)));
   function mostrarSub(id) {
-    ['adminEscalas', 'adminAportes', 'adminParametros', 'adminFeriados'].forEach((s) => { el(s).hidden = s !== id; });
+    ['adminEscalas', 'adminAportes', 'adminParametros', 'adminFeriados', 'adminSuscripciones'].forEach((s) => { el(s).hidden = s !== id; });
     document.querySelectorAll('[data-admin]').forEach((b) => b.classList.toggle('activa', b.dataset.admin === id));
-    ({ adminEscalas: cargarVigencias, adminAportes: cargarPeriodos, adminParametros: cargarParametros, adminFeriados: cargarFeriados })[id]();
+    ({ adminEscalas: cargarVigencias, adminAportes: cargarPeriodos, adminParametros: cargarParametros, adminFeriados: cargarFeriados, adminSuscripciones: cargarSuscripciones })[id]();
   }
   window.cargarAdmin = () => { cargarRobot(); mostrarSub('adminEscalas'); };
 
@@ -356,6 +356,7 @@
     horas_mensualizado: 'Horas para mensualizado', antiguedad_desde: 'Antigüedad desde',
     vep_dia_vencimiento: 'Día de vencimiento del VEP', periodo_prueba_meses: 'Período de prueba (meses)',
     vacaciones_divisor: 'Vacaciones: divisor',
+    precio_mensual: 'Suscripción: precio mensual', dias_prueba: 'Suscripción: días de prueba', cobro_activo: 'Suscripción: cobro activo',
   };
 
   async function cargarParametros() {
@@ -388,6 +389,49 @@
     f.reset();
     mostrarEstado(estado, '✓ Guardado.');
     cargarParametros();
+  });
+
+  // =====================================================================
+  // SUSCRIPCIONES
+  // =====================================================================
+  const ESTADO_PLAN = { prueba: 'Prueba', pendiente: 'Pendiente', activa: 'Activa', pausada: 'Pausada', cancelada: 'Cancelada', cortesia: 'Cortesía' };
+  let cobroActivo = false;
+  async function cargarSuscripciones() {
+    const [cobro, lista] = await Promise.all([db.rpc('parametro', { p_clave: 'cobro_activo' }), db.rpc('admin_suscripciones')]);
+    if (lista.error) { el('tablaSuscripciones').innerHTML = '<tr><td>No se pudo cargar. ¿Corriste el SQL 23?</td></tr>'; console.error(lista.error); return; }
+    cobroActivo = Number(cobro.data) === 1;
+    el('estadoCobro').innerHTML = cobroActivo
+      ? '<b>Cobro activo:</b> al terminar la prueba, quien no esté suscripto (ni tenga cortesía) queda en solo lectura.'
+      : '<b>Cobro apagado:</b> nadie queda bloqueado (etapa de prueba). Las suscripciones igual se pueden hacer.';
+    el('btnCobroActivo').textContent = cobroActivo ? 'Apagar el cobro' : 'Encender el cobro';
+    const hoy = hoyIso();
+    el('tablaSuscripciones').innerHTML = `<tr><th>Usuario</th><th>Plan</th><th></th></tr>` + lista.data.map((u) => {
+      const estado = u.estado || 'prueba';
+      const prueba = u.prueba_hasta ? (u.prueba_hasta >= hoy ? `prueba hasta ${fechaCorta(u.prueba_hasta)}` : `prueba terminó ${fechaCorta(u.prueba_hasta)}`) : 'todavía no entró';
+      return `<tr><td>${escapar(u.nombre || u.email)}<small>${escapar(u.email)} · ${u.empleados} empleado${Number(u.empleados) === 1 ? '' : 's'} · ${prueba}${u.proximo_cobro ? ` · próximo cobro ${fechaCorta(u.proximo_cobro)}` : ''}</small></td>
+        <td><span class="chip-plan ${estado}">${ESTADO_PLAN[estado] || estado}</span></td>
+        <td><button type="button" class="borrar" data-cortesia="${u.usuario_id}" data-dar="${estado === 'cortesia' ? '0' : '1'}">${estado === 'cortesia' ? 'Quitar cortesía' : 'Dar cortesía'}</button></td></tr>`;
+    }).join('');
+  }
+
+  el('tablaSuscripciones').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-cortesia]');
+    if (!b) return;
+    const dar = b.dataset.dar === '1';
+    if (!confirm(dar ? '¿Dar uso sin cargo a este usuario?' : '¿Quitarle la cortesía? Vuelve a la prueba o a su suscripción.')) return;
+    const { error } = await db.rpc('admin_cortesia', { p_usuario: b.dataset.cortesia, p_cortesia: dar });
+    if (error) { alert('No se pudo cambiar.'); console.error(error); return; }
+    cargarSuscripciones();
+  });
+
+  el('btnCobroActivo').addEventListener('click', async () => {
+    const nuevo = cobroActivo ? 0 : 1;
+    if (!confirm(nuevo ? '¿Encender el cobro? Quien terminó la prueba sin suscribirse (y sin cortesía) queda en solo lectura.' : '¿Apagar el cobro? Nadie queda bloqueado.')) return;
+    const { error } = await db.from('parametros').upsert(
+      { clave: 'cobro_activo', vigencia_desde: hoyIso(), valor: nuevo, descripcion: nuevo ? 'Cobro encendido desde Admin' : 'Cobro apagado desde Admin' },
+      { onConflict: 'clave,vigencia_desde' });
+    if (error) { alert('No se pudo cambiar.'); console.error(error); return; }
+    cargarSuscripciones();
   });
 
   // =====================================================================

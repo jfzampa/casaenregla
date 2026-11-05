@@ -434,4 +434,8 @@ textarea { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; fon
 .estado-robot { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: #eef7f2; border: 1px solid #cfe8db;
   border-radius: 12px; padding: 10px 12px; margin-bottom: 14px; font: inherit; font-size: .86rem; color: var(--texto); cursor: pointer; }
 .estado-robot span { margin-left: auto; color: var(--gris); font-size: 1.1rem; }
+.chip-plan { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: #e3e8e6; color: var(--gris); white-space: nowrap; }
+.chip-plan.activa, .chip-plan.cortesia { background: #dff3e8; color: var(--verde-oscuro); }
+.chip-plan.pendiente, .chip-plan.pausada { background: #fff2cc; color: #8a6400; }
+.chip-plan.cancelada { background: #fbe1de; color: var(--error); }
 .estado-robot.con-novedades { background: #fff7e0; border-color: #f0d78a; }
