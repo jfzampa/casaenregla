@@ -19,17 +19,25 @@
 
   // ---------- Al entrar: ¿es empleador, empleado o ambos? ----------
   window.iniciarRol = async () => {
-    const [empleos, propios] = await Promise.all([
+    const [empleos, propios, perfil, usuario] = await Promise.all([
       db.rpc('mi_empleo'),
       db.from('empleados').select('id').limit(1),
+      db.from('empleadores').select('nombre, apellido').maybeSingle(),
+      db.auth.getUser(),
     ]);
     misEmpleos = empleos.error ? [] : empleos.data;
     const soloEmpleado = misEmpleos.length > 0 && !(propios.data || []).length;
     el('tabTrabajo').hidden = !misEmpleos.length;
-    el('tabEmpleados').hidden = soloEmpleado;
-    el('tabPerfil').hidden = soloEmpleado;
+    ['tabEmpleados', 'tabPerfil', 'navInicio', 'navNovedades'].forEach((id) => { el(id).hidden = soloEmpleado; });
+
+    // Nombre para el saludo y el encabezado
+    const pf = perfil.data;
+    const nombre = pf && pf.nombre ? `${pf.nombre} ${pf.apellido || ''}`.trim()
+      : misEmpleos[0] ? `${misEmpleos[0].nombre} ${misEmpleos[0].apellido}` : '';
+    window.mostrarUsuario?.(nombre, usuario.data.user ? usuario.data.user.email : '');
+
     if (leerInvitacion()) { irA('vistaInvitacion'); return; }
-    irA(soloEmpleado ? 'vistaTrabajo' : 'vistaLista');
+    irA(soloEmpleado ? 'vistaTrabajo' : 'vistaInicio');
   };
 
   // ---------- Aceptar la invitación ----------

@@ -9,7 +9,19 @@ const el = (id) => document.getElementById(id);
 const escapar = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fechaCorta = (iso) => (iso ? iso.split('-').reverse().join('/') : '');
 
+let temporizadorToast = null;
+function toast(texto, mal = false) {
+  const t = el('toast');
+  if (!t) return;
+  t.textContent = texto;
+  t.classList.toggle('mal', mal);
+  t.hidden = false;
+  clearTimeout(temporizadorToast);
+  temporizadorToast = setTimeout(() => { t.hidden = true; }, 2800);
+}
+
 function mostrarEstado(nodo, texto, mal = false) {
+  if (!mal && typeof texto === 'string' && texto.startsWith('✓')) toast(texto);
   if (!nodo) return;
   nodo.textContent = texto;
   nodo.classList.toggle('mal', mal);
@@ -191,18 +203,21 @@ document.querySelectorAll('[data-escanear]').forEach((b) => b.addEventListener('
 el('btnCancelarScan').addEventListener('click', detenerEscaneo);
 
 // ================= Navegación dentro de la app =================
-const VISTAS = ['vistaLista', 'vistaFicha', 'vistaForm', 'vistaLiquidar', 'vistaTrabajo', 'vistaInvitacion', 'vistaPerfil', 'vistaCuenta', 'vistaAdmin'];
+const VISTAS = ['vistaInicio', 'vistaNovedades', 'vistaLista', 'vistaFicha', 'vistaForm', 'vistaLiquidar', 'vistaTrabajo', 'vistaInvitacion', 'vistaPerfil', 'vistaCuenta', 'vistaAdmin'];
 const ALCARGAR = {
   vistaLista: () => cargarLista(), vistaPerfil: () => cargarPerfil(), vistaCuenta: () => cargarCuenta(),
   vistaAdmin: () => window.cargarAdmin?.(),
   vistaTrabajo: () => window.cargarTrabajo?.(),
+  vistaInicio: () => cargarInicio(),
+  vistaNovedades: () => cargarVistaNovedades(),
 };
 
 function irA(vista) {
   detenerEscaneo();
   VISTAS.forEach((v) => { el(v).hidden = v !== vista; });
   const pestania = ['vistaFicha', 'vistaForm', 'vistaLiquidar'].includes(vista) ? 'vistaLista' : vista;
-  document.querySelectorAll('.pestanias button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === pestania));
+  document.querySelectorAll('.barra-inferior button').forEach((b) => b.classList.toggle('activa', b.dataset.vista === pestania));
+  el('menuUsuario').hidden = true;
   window.scrollTo({ top: 0 });
   ALCARGAR[vista]?.();
 }
@@ -246,8 +261,142 @@ async function cargarLista() {
           <button type="button" class="btn-liquidar" data-liquidar="${e.id}">💰<br>Liquidar</button>
         </div>`).join('')
     : '<p class="vacio">Todavía no cargaste ningún empleado.</p>';
-  cargarAvisos(data).catch((err) => console.error('avisos', err));
 }
+
+// ================= Encabezado con el usuario =================
+let nombreUsuario = '';
+window.mostrarUsuario = (nombre, email) => {
+  nombreUsuario = nombre || '';
+  const base = (nombre || email || '?').trim();
+  const partes = base.split(/[\s@.]+/).filter(Boolean);
+  el('avatarIniciales').textContent = ((partes[0] || '?')[0] + (partes[1] ? partes[1][0] : '')).toUpperCase();
+  el('menuNombre').textContent = nombre || 'Mi cuenta';
+  el('menuEmail').textContent = email || '';
+  el('btnUsuario').hidden = false;
+};
+el('btnUsuario').addEventListener('click', (ev) => { ev.stopPropagation(); el('menuUsuario').hidden = !el('menuUsuario').hidden; });
+document.addEventListener('click', (ev) => {
+  if (!el('menuUsuario').hidden && !ev.target.closest('#menuUsuario')) el('menuUsuario').hidden = true;
+});
+el('btnSalirMenu').addEventListener('click', () => db.auth.signOut());
+
+// ================= Inicio =================
+const CLAVE_PASOS = 'casaenregla_pasos_ocultos';
+let pasosInicio = [];
+
+async function cargarInicio() {
+  const ahora = new Date();
+  const h = ahora.getHours();
+  el('saludo').textContent = `${h < 12 ? 'Buen día' : h < 20 ? 'Buenas tardes' : 'Buenas noches'}${nombreUsuario ? `, ${nombreUsuario.split(' ')[0]}` : ''}`;
+  el('fechaHoy').textContent = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  const mes = mesActual();
+  const [a, m] = mes.split('-').map(Number);
+  const sig = m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`;
+  const sig2 = m >= 11 ? `${a + 1}-${String(((m + 1) % 12) + 1).padStart(2, '0')}` : `${a}-${String(m + 2).padStart(2, '0')}`;
+  const [emps, perfil, liqsMes, todas, invs, fer] = await Promise.all([
+    db.from('empleados').select('*').order('apellido').order('nombre'),
+    db.from('empleadores').select('apellido, cuil, trabajo_lat').maybeSingle(),
+    db.from('liquidaciones').select('empleado_id, periodo, estado, neto, pago_arca').eq('periodo', `${mes}-01`),
+    db.from('liquidaciones').select('id', { count: 'exact', head: true }),
+    db.from('invitaciones').select('codigo', { count: 'exact', head: true }),
+    db.from('feriados').select('fecha').gte('fecha', `${sig}-01`).lt('fecha', `${sig2}-01`),
+  ]);
+  const lista = emps.data || [];
+  empleados = lista;
+  const hoy = hoyIso();
+  const activos = lista.filter((e) => !e.fecha_egreso || e.fecha_egreso >= hoy);
+  const pf = perfil.data || {};
+
+  // ---- Primeros pasos ----
+  pasosInicio = [
+    { ok: !!(pf.apellido && pf.cuil), texto: 'Completá tus datos de empleador', ir: () => irA('vistaPerfil') },
+    { ok: lista.length > 0, texto: 'Cargá a tu primer empleado (podés escanear su DNI)', ir: () => abrirEmpleado() },
+    { ok: !!pf.trabajo_lat, texto: 'Guardá la ubicación del lugar de trabajo', ir: () => irA('vistaPerfil') },
+    { ok: lista.some((e) => e.usuario_id) || (invs.count || 0) > 0, texto: 'Invitá a tu empleado a la app', ir: () => (activos[0] ? abrirFicha(activos[0]) : abrirEmpleado()) },
+    { ok: (todas.count || 0) > 0, texto: 'Hacé tu primera liquidación', ir: () => (activos[0] ? abrirLiquidacion(activos[0]) : abrirEmpleado()) },
+  ];
+  const hechos = pasosInicio.filter((p) => p.ok).length;
+  let ocultos = false;
+  try { ocultos = localStorage.getItem(CLAVE_PASOS) === '1'; } catch { /* sin almacenamiento */ }
+  el('cajaPasos').hidden = ocultos || hechos === pasosInicio.length;
+  el('barraPasos').style.width = `${Math.round(hechos / pasosInicio.length * 100)}%`;
+  el('textoPasos').textContent = hechos ? `Vas ${hechos} de ${pasosInicio.length}. ¡Seguí así!` : 'Te guiamos para dejar todo en regla en pocos minutos.';
+  el('listaPasos').innerHTML = pasosInicio.map((p, i) => `
+    <li class="${p.ok ? 'ok' : ''}"><button type="button" data-paso="${i}"><span class="marca-paso">${p.ok ? '✓' : i + 1}</span>${escapar(p.texto)}</button></li>`).join('');
+
+  // ---- Resumen del mes ----
+  el('tituloMes').textContent = `${NOMBRE_MES[m - 1][0].toUpperCase()}${NOMBRE_MES[m - 1].slice(1)} ${a}`;
+  if (!activos.length) {
+    el('resumenMes').innerHTML = '<p class="ayuda">Todavía no cargaste empleados. Empezá por "Nuevo empleado".</p>';
+  } else {
+    const delMes = (liqsMes.data || []).filter((l) => activos.some((e) => e.id === l.empleado_id));
+    const pagadas = delMes.filter((l) => l.estado === 'pagada').length;
+    const costo = delMes.reduce((s, l) => s + Number(l.neto) + Number(l.pago_arca), 0);
+    const feriados = new Set((fer.data || []).map((f) => f.fecha));
+    const vSueldo = Liquidacion.diaHabil(sig, 4, feriados);
+    const vVep = Liquidacion.habilDesde(`${sig}-10`, feriados);
+    const DIAS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+    const conDia = (iso) => `${DIAS[new Date(iso + 'T12:00').getDay()]} ${fechaCorta(iso).slice(0, 5)}`;
+    el('resumenMes').innerHTML = `
+      <div class="cifras">
+        <div class="cifra"><small>Empleados activos</small><b>${activos.length}</b></div>
+        <div class="cifra"><small>Liquidados este mes</small><b>${delMes.length} de ${activos.length}</b> <small>${pagadas} pagado${pagadas === 1 ? '' : 's'}</small></div>
+        <div class="cifra grande"><small>Costo del mes (sueldos + ARCA)</small><b>${delMes.length ? pesos(costo) : 'Todavía sin liquidar'}</b></div>
+      </div>
+      <ul class="vencimientos">
+        <li><span>Pagar los sueldos de ${NOMBRE_MES[m - 1]}</span><b>hasta el ${conDia(vSueldo)}</b></li>
+        <li><span>Pagar el VEP de aportes en ARCA</span><b>aprox. ${conDia(vVep)}</b></li>
+        ${m === 6 || m === 12 ? `<li><span>Aguinaldo del semestre</span><b>con el sueldo de ${NOMBRE_MES[m - 1]}</b></li>` : ''}
+      </ul>`;
+  }
+
+  // ---- Tareas pendientes (avisos) ----
+  cargarAvisos(lista).catch((err) => console.error('avisos', err));
+}
+
+el('listaPasos').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-paso]');
+  if (b) pasosInicio[Number(b.dataset.paso)].ir();
+});
+el('btnOcultarPasos').addEventListener('click', () => {
+  try { localStorage.setItem(CLAVE_PASOS, '1'); } catch { /* sin almacenamiento */ }
+  el('cajaPasos').hidden = true;
+  toast('Podés seguir los pasos desde cada sección cuando quieras.');
+});
+
+const activosDe = (lista) => lista.filter((e) => !e.fecha_egreso || e.fecha_egreso >= hoyIso());
+el('accLiquidar').addEventListener('click', () => {
+  const activos = activosDe(empleados);
+  if (activos.length === 1) abrirLiquidacion(activos[0]);
+  else if (!activos.length) { toast('Primero cargá a tu empleado.'); abrirEmpleado(); }
+  else { irA('vistaLista'); toast('Elegí a quién liquidar: tocá "💰 Liquidar".'); }
+});
+el('accNovedad').addEventListener('click', () => irA('vistaNovedades'));
+el('accNuevo').addEventListener('click', () => abrirEmpleado());
+
+// ================= Novedades: elegir a quién =================
+async function abrirNovedadesDe(e) {
+  await abrirFicha(e);
+  el('calendario').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function cargarVistaNovedades() {
+  const { data, error } = await db.from('empleados').select('*').order('apellido').order('nombre');
+  if (error) { el('listaNovedadesEmpleados').innerHTML = '<p class="estado mal">No se pudieron cargar los empleados.</p>'; return; }
+  const activos = activosDe(data);
+  empleados = data;
+  if (activos.length === 1) { abrirNovedadesDe(activos[0]); return; }
+  el('listaNovedadesEmpleados').innerHTML = activos.length ? activos.map((e) => `
+    <button type="button" class="item" data-nov-emp="${e.id}">
+      <b>${escapar(e.apellido)}, ${escapar(e.nombre)}</b>
+      <span>Tocá para abrir su calendario del mes</span>
+    </button>`).join('') : '<p class="vacio">Todavía no cargaste empleados.</p>';
+}
+el('listaNovedadesEmpleados').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-nov-emp]');
+  if (b) abrirNovedadesDe(empleados.find((e) => e.id === b.dataset.novEmp));
+});
 
 // ================= Avisos (pantalla de inicio) =================
 async function cargarAvisos(lista) {
@@ -1420,6 +1569,8 @@ el('formBorrar').addEventListener('submit', async (ev) => {
 
 // ================= Login, crear cuenta, recuperar contraseña =================
 function mostrarLogin(vista, aviso = '', mal = false) {
+  el('btnUsuario').hidden = true;
+  el('menuUsuario').hidden = true;
   el('pantallaLogin').hidden = false;
   el('pantallaApp').hidden = true;
   document.querySelectorAll('.vista-login').forEach((s) => { s.hidden = s.id !== vista; });

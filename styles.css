@@ -348,3 +348,74 @@ textarea { display: block; width: 100%; margin-top: 4px; padding: 10px 12px; fon
 .tabla-admin .borrar { background: none; border: none; color: var(--error); cursor: pointer; font-size: .8rem; text-decoration: underline; padding: 0; }
 
 .pie { text-align: center; font-size: .75rem; color: var(--gris); padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
+
+/* =====================================================================
+   Experiencia de usuario: encabezado, barra inferior, inicio, mensajes
+   ===================================================================== */
+.barra { position: relative; }
+.barra .marca { flex: 1; min-width: 0; }
+.usuario-chip { flex: none; background: none; border: none; padding: 0; cursor: pointer; }
+.avatar {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%;
+  background: var(--verde); color: #fff; font-weight: 700; font-size: .95rem; letter-spacing: .5px; border: 2px solid rgba(255,255,255,.6);
+}
+.menu-usuario {
+  position: absolute; right: 12px; top: calc(100% - 4px); z-index: 20; min-width: 230px;
+  background: #fff; color: var(--texto); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.18); overflow: hidden;
+}
+.menu-usuario[hidden] { display: none; }
+.menu-cabecera { padding: 12px 14px; background: #f4f6f5; }
+.menu-cabecera b { display: block; color: var(--azul); }
+.menu-cabecera small { color: var(--gris); word-break: break-all; }
+.menu-usuario button { display: block; width: 100%; text-align: left; background: none; border: none; border-top: 1px solid #eef0f2; padding: 12px 14px; font: inherit; color: var(--texto); cursor: pointer; }
+.menu-usuario button:hover { background: #f7f9f8; }
+.menu-usuario button.salir { color: var(--error); }
+
+/* Barra inferior */
+#pantallaApp { padding-bottom: calc(84px + env(safe-area-inset-bottom)); }
+.barra-inferior {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; justify-content: space-around;
+  background: #fff; border-top: 1px solid var(--borde); padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow: 0 -2px 10px rgba(0,0,0,.05);
+}
+.barra-inferior button {
+  flex: 1; max-width: 120px; display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: none;
+  padding: 4px 2px; font: inherit; font-size: .7rem; color: var(--gris); cursor: pointer; border-radius: 10px;
+}
+.barra-inferior button[hidden] { display: none; }
+.barra-inferior svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.barra-inferior button.activa { color: var(--verde-oscuro); font-weight: 600; }
+.barra-inferior button.activa svg { stroke-width: 2.2; }
+
+/* Mensaje flotante */
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(92px + env(safe-area-inset-bottom)); z-index: 30;
+  max-width: min(92vw, 480px); background: var(--azul); color: #fff; padding: 10px 16px; border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.2); font-size: .92rem; text-align: center;
+}
+.toast.mal { background: var(--error); }
+.toast[hidden] { display: none; }
+
+/* Inicio */
+.saludo { margin: 6px 0 0; font-size: 1.45rem; }
+.fecha-hoy { margin: 2px 0 14px; color: var(--gris); text-transform: capitalize; }
+.pasos .progreso { height: 8px; background: #e3e8e6; border-radius: 999px; overflow: hidden; margin: 2px 0 8px; }
+.pasos .progreso div { height: 100%; background: var(--verde); border-radius: 999px; transition: width .3s; }
+.pasos ol { list-style: none; margin: 0; padding: 0; }
+.pasos li button {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: none; border-top: 1px solid #eef0f2;
+  padding: 10px 0; font: inherit; font-size: .92rem; color: var(--texto); cursor: pointer;
+}
+.pasos li .marca-paso { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--borde); display: inline-flex; align-items: center; justify-content: center; font-size: .8rem; color: var(--gris); }
+.pasos li.ok .marca-paso { background: var(--verde); border-color: var(--verde); color: #fff; }
+.pasos li.ok button { color: var(--gris); text-decoration: line-through; }
+.pasos li:not(.ok) button::after { content: '›'; margin-left: auto; color: var(--gris); font-size: 1.2rem; }
+.accesos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.accesos button {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; background: var(--tarjeta); border: none; border-radius: 14px;
+  padding: 14px 6px; font: inherit; font-size: .82rem; font-weight: 600; color: var(--azul); cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.accesos button span { font-size: 1.5rem; }
+.vencimientos { list-style: none; margin: 10px 0 0; padding: 0; font-size: .9rem; }
+.vencimientos li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid #eef0f2; }
+.vencimientos li b { color: var(--azul); white-space: nowrap; }

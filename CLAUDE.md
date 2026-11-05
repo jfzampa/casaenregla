@@ -175,6 +175,10 @@ Lo que vende CasaEnRegla es **ocuparse de todo el mes por el empleador**:
   escalas con los valores leídos (o Aportes > nuevo período) y al guardar marca el hallazgo como aplicado; aviso en el inicio para el admin.
   La función valida: encabezado x-robot = secreto ROBOT_SECRETO (cron) o JWT de un usuario admin. "Verify JWT" desactivado en la función.
   El secreto NO está en el repo (20_robot_cron.sql tiene PONER_SECRETO).
+- Experiencia de usuario ✔: encabezado con iniciales y menú (Mis datos, Mi cuenta, Administración, Salir); barra inferior tipo app
+  (Inicio, Empleados, Novedades, Mi trabajo si corresponde, Cuenta); pantalla de Inicio (saludo con nombre, Primeros pasos con progreso
+  — se ocultan con localStorage —, accesos rápidos, Tareas pendientes = avisos, resumen del mes con costo y vencimientos); vista Novedades
+  para elegir a quién anotar; mensajes flotantes (toast) para toda confirmación "✓ …" de mostrarEstado.
 - Avisos por notificación push / mail: pendiente (push = Web Push con claves VAPID; mail = en la fase final con SMTP).
 - Portal del empleado parte 2 ✔ (`supabase/18_acuerdos.sql`): acuerdos y comunicaciones con firma electrónica (Ley 25.506).
   El empleador redacta desde la ficha con modelos (medio de pago, descuento de aporte, vacaciones, horario, preaviso, comunicación, otro)
